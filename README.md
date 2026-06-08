@@ -206,6 +206,15 @@ test/quantum.test.js       Quantum layer (simulator, backends, Born selection, n
   Rendering uses additive-blended `THREE.Points` with `depthWrite:false` and a procedural glow shader; if
   Three.js can't load, the cloud disables itself and the generator keeps working fully offline.
 
+#### Offline preview (no browser)
+
+`node examples/render-clouds.js` rasterizes the **real orbital geometry** (the same `orbitals.js` sampling)
+with additive glow + bloom into PNGs under `docs/previews/` — a browser-free way to verify the graphics.
+The phase sign tints each lobe (warm = +, cool = −).
+
+![Five element orbitals: 1s · 2pₓ · 2p_y · 2p_z · 3d_z²](docs/previews/cloud-contact.png)
+![Golden-ratio mandala of the five element clouds](docs/previews/cloud-mandala.png)
+
 ### Real quantum measurement + "negative time"
 
 A second, optional **quantum-measurement engine** turns candidate selection into a *genuine Born-rule
