@@ -196,5 +196,11 @@ check('setMode("bloch") rebuilds as Bloch-sphere widgets and ticks', () => {
   assert.ok(field.clouds.every((c) => c.kind === 'orbital'));
 });
 
+check('entanglement threads link paired files (⌊n/2⌋)', () => {
+  field.setFiles(mockFiles(SITE_SPECS['dharma-landing']), 108); // 5 files → 2 pairs
+  assert.equal(field._threads.length, 2);
+  for (let i = 0; i < 5; i++) field._tick(); // opacity updates must not throw
+});
+
 field.dispose();
 console.log(`\nAll ${passed} cloud-integration checks passed ✓`);

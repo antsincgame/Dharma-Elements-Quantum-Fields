@@ -24,6 +24,8 @@ import {
   QuantumEntropy,
   makeBackend,
   bellCircuit,
+  chshExact,
+  chshSampled,
   createRng,
   SITE_SPECS,
   byteLength,
@@ -73,6 +75,7 @@ Options:
   --ibm-crn <crn>      IBM Qiskit Runtime instance Service-CRN
   --ibm-backend <id>   IBM device name (default: ibm_brisbane)
   --verify-quantum     Run a Bell circuit on --backend and print the counts (connectivity check)
+  --bell-test          Run a CHSH Bell test on --backend (classical ≤ 2, quantum → 2√2)
   --quiet              Suppress per-step logging
   --help               Show this help
 `);
@@ -126,6 +129,16 @@ async function main() {
     const { counts } = await backend.run(bellCircuit(), 1024);
     console.log(`  Bell counts: ${JSON.stringify(counts)} (ideal ≈ 50% 00, 50% 11)`);
     console.log(`  OpenQASM 3:\n${bellCircuit().toOpenQASM().split('\n').map((l) => '    ' + l).join('\n')}`);
+  }
+
+  // CHSH Bell test: interbeing (प्रतीत्यसमुत्पाद) made measurable.
+  if (args['bell-test']) {
+    const backend = makeBackend(backendId, backendOpts);
+    console.log(`🔗 CHSH Bell test on backend=${backend.name} …`);
+    const r = await chshSampled(backend, 4096);
+    console.log(`  E(a,b)=${r.E.ab.toFixed(3)}  E(a,b')=${r.E.abp.toFixed(3)}  E(a',b)=${r.E.apb.toFixed(3)}  E(a',b')=${r.E.apbp.toFixed(3)}`);
+    console.log(`  S = ${r.S.toFixed(4)}   (classical ≤ 2 · Tsirelson 2√2 ≈ ${(2 * Math.SQRT2).toFixed(4)} · ideal ${chshExact().S.toFixed(4)})`);
+    console.log(`  ${r.violates ? '✓ Bell inequality VIOLATED — interbeing is real (प्रतीत्यसमुत्पाद ↔ entanglement)' : '✗ no violation (classical/degraded path)'}`);
   }
 
   const simulator = new QuantumSimulatorEngine();

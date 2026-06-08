@@ -14,3 +14,4 @@ export * from './negative-time.js';
 export * from './quantum-engine.js';
 export * from './bloch.js';
 export * from './zip.js';
+export * from './entanglement.js';

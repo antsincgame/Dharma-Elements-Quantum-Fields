@@ -177,6 +177,7 @@ src/generator/        Framework-free ES-module core (runs in the browser and Nod
   backends.js                QuantumBackend: local / ANU QRNG / IBM (+ Braket/Azure stubs)
   quantum-engine.js          QuantumMeasurementEngine — Born-rule candidate selection
   negative-time.js           weak value / group delay (Steinberg/Angulo, arXiv:2409.03680)
+  entanglement.js            Bell states, EntangledPair, and the CHSH Bell test
   bloch.js                   Bloch-sphere geometry for the qubit-state cloud view
   zip.js                     zero-dependency ZIP writer (one-click site download)
   vocabulary.js / prng.js / events.js / index.js
@@ -204,6 +205,15 @@ test/quantum.test.js       Quantum layer (simulator, backends, Born selection, n
   l**: Higgs (spin 0) → `1s`, the spin-1 vector/gauge fields → `2pₓ/2p_y/2p_z`, the spin-2 vacuum → `3d`.
   Rendering uses additive-blended `THREE.Points` with `depthWrite:false` and a procedural glow shader; if
   Three.js can't load, the cloud disables itself and the generator keeps working fully offline.
+
+#### Offline preview (no browser)
+
+`node examples/render-clouds.js` rasterizes the **real orbital geometry** (the same `orbitals.js` sampling)
+with additive glow + bloom into PNGs under `docs/previews/` — a browser-free way to verify the graphics.
+The phase sign tints each lobe (warm = +, cool = −).
+
+![Five element orbitals: 1s · 2pₓ · 2p_y · 2p_z · 3d_z²](docs/previews/cloud-contact.png)
+![Golden-ratio mandala of the five element clouds](docs/previews/cloud-mandala.png)
 
 ### Real quantum measurement + "negative time"
 
@@ -239,6 +249,25 @@ ANU_QRNG_KEY=… node bin/generate.js --engine quantum --backend qrng
 # Verify connectivity to a real QPU / QRNG with a Bell circuit
 node bin/generate.js --verify-quantum --backend ibm --ibm-key … --ibm-crn …
 ```
+
+### Entanglement & the Bell–CHSH test (interbeing made measurable)
+
+The site names the parallel *Interdependence (प्रतीत्यसमुत्पाद) ↔ Quantum Entanglement* — `entanglement.js`
+makes it real. Files are paired into **entangled (Bell) states**; an `EntangledPair` collapses both halves
+at once with perfectly correlated outcomes (`|Φ⁺⟩` ⇒ `b₀ = b₁`), and the superposition cloud draws
+**entanglement threads** between paired files that brighten as the pair co-collapses.
+
+A genuine **CHSH Bell test** quantifies it: `S = E(a,b) + E(a,b′) + E(a′,b) − E(a′,b′)` obeys `|S| ≤ 2`
+for *any* local-realistic (“separate, independent”) world (Bell 1964; CHSH 1969), but a shared Bell state
+reaches the **Tsirelson bound 2√2 ≈ 2.828** — verified exactly here, and sampled on any backend (route to
+a real QPU via the proxy). The honest caveat is baked in: these correlations **cannot transmit information**
+(no-communication theorem) — no faster-than-light signaling.
+
+```bash
+node bin/generate.js --bell-test --backend local        # sampled CHSH → S ≈ 2.81 (violates 2)
+node bin/generate.js --bell-test --backend ibm …        # the same test on a real QPU via the proxy
+```
+The UI adds a **Bell-test panel** showing `S` against the classical (2) and Tsirelson (2√2) marks.
 
 ### Example proxy server, Bloch view & site download
 

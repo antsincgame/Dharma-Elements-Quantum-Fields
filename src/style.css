@@ -936,3 +936,79 @@ body.qg-body {
     line-height: 1.5;
     color: #475569;
 }
+
+/* 🔗 Bell-test (CHSH) panel */
+.qg-bell {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(30, 64, 175, 0.3);
+    background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%);
+}
+
+.qg-bell h3 {
+    font-size: 0.95em;
+    color: #1e40af;
+    margin-bottom: 8px;
+}
+
+.qg-bell-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+
+.qg-bell-S {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    color: #475569;
+}
+
+.qg-bell-violate {
+    color: #16a34a !important;
+    font-weight: 700;
+}
+
+.qg-bell-bar {
+    position: relative;
+    height: 14px;
+    background: linear-gradient(90deg, #dbeafe 0%, #c7d2fe 100%);
+    border-radius: 7px;
+    margin: 26px 0 8px;
+}
+
+.qg-bell-tick {
+    position: absolute;
+    top: -5px;
+    bottom: -5px;
+    width: 2px;
+}
+
+.qg-bell-classical { left: 66.667%; background: #dc2626; }  /* S = 2 */
+.qg-bell-tsirelson { left: 94.281%; background: #7c3aed; }  /* S = 2√2 */
+
+.qg-bell-tick span {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.64em;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.qg-bell-marker {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: #16a34a;
+    box-shadow: 0 0 8px rgba(22, 163, 74, 0.7);
+    transition: left 0.5s ease;
+}
