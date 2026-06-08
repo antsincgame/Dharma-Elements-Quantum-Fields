@@ -506,6 +506,20 @@ body.qg-body {
     grid-column: 1 / -1;
 }
 
+.qg-hint {
+    margin: 6px 0 0;
+    font-size: 0.82em;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.qg-hint code {
+    background: #eef2ff;
+    color: #4338ca;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
 .qg-control label {
     color: #374151;
     font-weight: 600;

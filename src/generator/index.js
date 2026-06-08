@@ -5,6 +5,7 @@ export * from './prng.js';
 export * from './events.js';
 export * from './vocabulary.js';
 export * from './quantum-site-generator.js';
+export * from './llm-protocol.js';
 export * from './engines.js';
 export * from './scorers.js';
 export * from './orbitals.js';

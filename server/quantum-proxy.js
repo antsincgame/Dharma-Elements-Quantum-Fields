@@ -10,6 +10,8 @@
 //   IBM_QUANTUM_TOKEN   — IBM Cloud IAM key                ┐ → /api/quantum (backend=ibm)
 //   IBM_CRN             — Qiskit Runtime instance CRN      ┘
 //   ANTHROPIC_API_KEY   — Claude key                       → /api/generate (LLM engine)
+//   LMSTUDIO_URL        — OpenAI-compatible upstream        ┐ → /api/llm (LM Studio etc.)
+//   LMSTUDIO_KEY        — bearer key (optional, hosted)     ┘   default localhost:1234
 //
 // Zero dependencies: Node's built-in http/fs + global fetch (Node ≥18). This is a
 // reference implementation, not a hardened production server.
@@ -28,6 +30,8 @@ const ANU_KEY = process.env.ANU_QRNG_KEY || null;
 const IBM_TOKEN = process.env.IBM_QUANTUM_TOKEN || null;
 const IBM_CRN = process.env.IBM_CRN || null;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || null;
+const LMSTUDIO_URL = process.env.LMSTUDIO_URL || 'http://localhost:1234/v1/chat/completions';
+const LMSTUDIO_KEY = process.env.LMSTUDIO_KEY || null;
 const ANU_URL = 'https://api.quantumnumbers.anu.edu.au';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -100,6 +104,21 @@ async function handleGenerate(req, res) {
   }
 }
 
+// POST /api/llm — forward an OpenAI-compatible chat request to a local server
+// (LM Studio by default). Lets the browser reach LM Studio same-origin when its
+// CORS is off; LM Studio is keyless, so this usually just relays the body as-is.
+async function handleLLM(req, res) {
+  try {
+    const headers = { 'content-type': 'application/json' };
+    if (LMSTUDIO_KEY) headers['authorization'] = `Bearer ${LMSTUDIO_KEY}`;
+    const r = await fetch(LMSTUDIO_URL, { method: 'POST', headers, body: await readBody(req) });
+    const text = await r.text();
+    send(res, r.status, text, { 'Content-Type': 'application/json' });
+  } catch (err) {
+    send(res, 502, JSON.stringify({ error: `LM Studio upstream (${LMSTUDIO_URL}) unreachable: ${err.message}` }), { 'Content-Type': 'application/json' });
+  }
+}
+
 async function serveStatic(req, res, url) {
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === '/') pathname = '/src/generator.html';
@@ -119,6 +138,7 @@ const server = createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/qrng') return handleQRNG(req, res, url);
   if (req.method === 'POST' && url.pathname === '/api/quantum') return handleQuantum(req, res);
   if (req.method === 'POST' && url.pathname === '/api/generate') return handleGenerate(req, res);
+  if (req.method === 'POST' && url.pathname === '/api/llm') return handleLLM(req, res);
   return serveStatic(req, res, url);
 });
 
@@ -128,4 +148,5 @@ server.listen(PORT, () => {
   console.log(`   QRNG:    ${ANU_KEY ? 'ready' : 'set ANU_QRNG_KEY to enable real quantum entropy'}  → /api/qrng`);
   console.log(`   IBM QPU: ${IBM_TOKEN && IBM_CRN ? 'ready' : 'set IBM_QUANTUM_TOKEN + IBM_CRN to enable'}  → POST /api/quantum {backend:"ibm"}`);
   console.log(`   Claude:  ${ANTHROPIC_KEY ? 'ready' : 'set ANTHROPIC_API_KEY to enable'}  → /api/generate`);
+  console.log(`   LM Studio: relaying to ${LMSTUDIO_URL}  → POST /api/llm  (browser can also call LM Studio directly)`);
 });

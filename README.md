@@ -171,6 +171,7 @@ This is grounded in two real ideas:
 src/generator/        Framework-free ES-module core (runs in the browser and Node)
   quantum-site-generator.js  NullFile model + negative-size math + Generator loop
   engines.js                 QuantumSimulatorEngine (default) + LLMEngine (optional)
+  llm-protocol.js            Anthropic + OpenAI-compatible (LM Studio/Ollama/OpenAI) shaping
   scorers.js                 HeuristicScorer + LLMScorer + CompositeScorer (hybrid)
   orbitals.js                |ψ|² orbital sampling for the superposition cloud
   qsim.js                    state-vector quantum simulator + OpenQASM-3 export
@@ -189,12 +190,16 @@ bin/generate.js       Node CLI — writes a real static site to disk
 test/selfcheck.js          Zero-dependency smoke test (core + orbital math)
 test/cloud-integration.js  Cloud integration test (mock-THREE contract)
 test/quantum.test.js       Quantum layer (simulator, backends, Born selection, neg-time)
+test/entanglement.test.js  Bell states, EntangledPair, and the CHSH Bell test
+test/llm.test.js           LLM providers (Anthropic + OpenAI/LM Studio), key-safety, fallback
 ```
 
 - **Engine** is pluggable: the offline **Quantum Simulator** synthesizes theme-coherent content from the
   five-element/field vocabulary with a seeded PRNG (deterministic, reproducible from one seed); the
-  optional **LLM engine** calls a real Claude model via a configurable endpoint and *degrades to the
-  simulator* on any failure. In the browser the key must live behind a proxy — never in the client.
+  optional **LLM engine** calls a real model via a configurable endpoint — **Claude** (Anthropic) or any
+  **OpenAI-compatible** server, most notably a **local [LM Studio](https://lmstudio.ai)** (no API key) — and
+  *degrades to the simulator* on any failure. A hosted key must live behind a proxy, never in the client;
+  a local LM Studio server needs no key at all.
 - **Scoring** is hybrid: deterministic, Lighthouse-inspired heuristics (completeness, richness,
   diversity, coherence, consistency, golden-ratio aesthetics) always run; an LLM judge can be blended in.
 - **Superposition cloud** (Three.js): each null file is drawn as a point cloud sampled from a
@@ -285,6 +290,32 @@ The UI adds a **Bell-test panel** showing `S` against the classical (2) and Tsir
   equator (superposition) to a pole (collapsed) as it is measured, the uncertainty cloud shrinking with it.
 - **Download** — once a site is generated, **⬇ Download .zip** packages the assembled files into a ZIP
   (a tiny in-repo, zero-dependency ZIP writer — no library) for a one-click save.
+
+### 🖥️ Local LLM via LM Studio (no API key)
+
+The LLM engine speaks two protocols: **Anthropic Messages** (Claude) and the **OpenAI-compatible**
+chat API used by [**LM Studio**](https://lmstudio.ai), Ollama, llama.cpp and OpenAI. Pick a provider with
+`provider:` (`anthropic` · `lmstudio` · `ollama` · `openai`); shared shaping lives in
+`src/generator/llm-protocol.js`.
+
+LM Studio is the sweet spot for this project: it runs **entirely on your machine**, needs **no API key**,
+and enables **CORS** by default — so the browser may call it *directly*, with **no secret anywhere** (the
+project's golden rule, satisfied trivially). Whole-file ` ``` ` code fences that local models sometimes emit
+are stripped automatically.
+
+```bash
+# 1) In LM Studio: load a model → Developer tab → Start Server (http://localhost:1234)
+# 2) Browser demo: pick engine "🖥️ LM Studio (local, no key)" and press Begin Measurement
+python3 -m http.server 8000      # → http://localhost:8000/src/generator.html
+
+# Node CLI — guess a real site with your local model
+node bin/generate.js --engine lmstudio --out ./generated
+node bin/generate.js --engine lmstudio --model qwen2.5-coder-7b --blend-scorer   # LM Studio as judge too
+```
+
+If LM Studio's CORS is off (or you prefer one origin), relay it same-origin through the proxy: run
+`LMSTUDIO_URL=… npm run serve:proxy` and point the endpoint at `/api/llm`. Either way, **no LM Studio →
+the run degrades cleanly to the offline simulator**, so it never hard-fails.
 
 ### Try it
 

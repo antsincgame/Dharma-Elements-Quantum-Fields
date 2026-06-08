@@ -65,9 +65,10 @@ Options:
   --threshold <n>      Target quality score 0-100 (default: 80)
   --budget <n>         Max measurement steps (default: 200)
   --seed <s>           PRNG seed for reproducibility (default: OM)
-  --engine sim|llm|quantum   Generation engine (default: sim)
-  --endpoint <url>     LLM proxy endpoint (browser-style); Node can also use ANTHROPIC_API_KEY
-  --model <id>         LLM model id (default: claude-opus-4-8)
+  --engine sim|llm|lmstudio|ollama|openai|quantum   Generation engine (default: sim)
+  --provider <id>      LLM provider preset: anthropic|lmstudio|ollama|openai (overrides --engine mapping)
+  --endpoint <url>     LLM endpoint: a proxy, or a local server's own URL (e.g. http://localhost:1234/v1/chat/completions)
+  --model <id>         LLM model id (default: the provider's preset model)
   --blend-scorer       Blend an LLM judge into the heuristic score (needs endpoint/key)
   --backend <id>       Quantum backend: local|qrng|ibm|braket|azure (default: local)
   --qrng-key <key>     ANU QRNG api key (or env ANU_QRNG_KEY) → real quantum entropy for --engine quantum
@@ -106,9 +107,17 @@ async function main() {
   const seed = args.seed != null ? String(args.seed) : 'OM';
   const quiet = Boolean(args.quiet);
 
-  const apiKey = process.env.ANTHROPIC_API_KEY || null;
+  // LLM provider: --provider wins; otherwise map --engine (llm → Claude, others 1:1).
+  const LLM_ENGINES = ['llm', 'lmstudio', 'ollama', 'openai'];
+  const provider = args.provider
+    ? String(args.provider)
+    : (args.engine === 'llm' ? 'anthropic' : String(args.engine || ''));
+  // Keys come from the environment, per provider. Local servers are keyless.
+  const apiKey = provider === 'openai'
+    ? (process.env.OPENAI_API_KEY || null)
+    : (process.env.ANTHROPIC_API_KEY || null);
   const endpoint = args.endpoint ? String(args.endpoint) : null;
-  const model = args.model ? String(args.model) : 'claude-opus-4-8';
+  const model = args.model ? String(args.model) : null; // null → provider preset default
 
   // Quantum backend credentials (for --verify-quantum and the quantum engine).
   const backendId = args.backend ? String(args.backend) : 'local';
@@ -143,10 +152,10 @@ async function main() {
 
   const simulator = new QuantumSimulatorEngine();
   let engine = simulator;
-  if (args.engine === 'llm') {
-    engine = new LLMEngine({ endpoint, apiKey, model, fallback: simulator });
+  if (LLM_ENGINES.includes(args.engine) || args.provider) {
+    engine = new LLMEngine({ provider, endpoint, apiKey, model, fallback: simulator });
     if (!(await engine.available())) {
-      console.warn('[qiwg] LLM engine requested but no endpoint/ANTHROPIC_API_KEY found — using simulator.');
+      console.warn(`[qiwg] LLM engine (${provider}) requested but no endpoint/key found — using simulator.`);
       engine = simulator;
     }
   } else if (args.engine === 'quantum') {
@@ -163,7 +172,7 @@ async function main() {
 
   let scorer = new HeuristicScorer();
   if (args['blend-scorer']) {
-    const llmScorer = new LLMScorer({ endpoint, apiKey, model });
+    const llmScorer = new LLMScorer({ provider, endpoint, apiKey, model });
     if (await llmScorer.available()) {
       scorer = new CompositeScorer({ base: scorer, llm: llmScorer });
     } else {

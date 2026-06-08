@@ -40,12 +40,20 @@
           <select id="qg-engine">
             <option value="sim">Quantum Simulator (offline)</option>
             <option value="quantum">⚛️ Quantum measurement (Born collapse)</option>
-            <option value="llm">Real LLM (via proxy)</option>
+            <option value="lmstudio">🖥️ LM Studio (local, no key)</option>
+            <option value="llm">Claude (via proxy)</option>
           </select>
         </div>
         <div class="qg-control qg-control-wide" id="qg-endpoint-wrap" style="display:none;">
-          <label for="qg-endpoint">LLM proxy endpoint (no API key in the browser)</label>
+          <label for="qg-endpoint">Claude proxy endpoint (no API key in the browser)</label>
           <input id="qg-endpoint" type="text" placeholder="/api/generate">
+        </div>
+        <div class="qg-control qg-control-wide" id="qg-lmstudio-wrap" style="display:none;">
+          <label for="qg-lm-endpoint">LM Studio endpoint (runs locally — no API key, OpenAI-compatible)</label>
+          <input id="qg-lm-endpoint" type="text" value="http://localhost:1234/v1/chat/completions">
+          <label for="qg-lm-model" style="margin-top:6px;">Model (optional — blank uses whatever model is loaded in LM Studio)</label>
+          <input id="qg-lm-model" type="text" placeholder="local-model">
+          <p class="qg-hint">Start LM Studio → <em>Developer</em> tab → <strong>Start Server</strong> (enable CORS). Or relay same-origin via the proxy: set the endpoint to <code>/api/llm</code>.</p>
         </div>
         <div class="qg-control qg-control-wide" id="qg-quantum-wrap" style="display:none;">
           <label for="qg-backend">Quantum backend (candidate selection = real Born-rule measurement)</label>
