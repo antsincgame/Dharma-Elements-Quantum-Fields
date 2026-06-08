@@ -38,12 +38,29 @@
           <label for="qg-engine">Engine</label>
           <select id="qg-engine">
             <option value="sim">Quantum Simulator (offline)</option>
+            <option value="quantum">⚛️ Quantum measurement (Born collapse)</option>
             <option value="llm">Real LLM (via proxy)</option>
           </select>
         </div>
         <div class="qg-control qg-control-wide" id="qg-endpoint-wrap" style="display:none;">
           <label for="qg-endpoint">LLM proxy endpoint (no API key in the browser)</label>
           <input id="qg-endpoint" type="text" placeholder="/api/generate">
+        </div>
+        <div class="qg-control qg-control-wide" id="qg-quantum-wrap" style="display:none;">
+          <label for="qg-backend">Quantum backend (candidate selection = real Born-rule measurement)</label>
+          <select id="qg-backend">
+            <option value="local">Local state-vector simulator (offline)</option>
+            <option value="qrng">ANU QRNG — real quantum entropy (via proxy)</option>
+            <option value="ibm">IBM Quantum — real QPU (via proxy)</option>
+            <option value="braket">Amazon Braket (proxy only)</option>
+            <option value="azure">Azure Quantum (proxy only)</option>
+          </select>
+          <label for="qg-qproxy" style="margin-top:6px;">Backend proxy endpoint — no API key in the browser</label>
+          <input id="qg-qproxy" type="text" placeholder="/api/quantum">
+          <div class="qg-quantum-actions">
+            <button id="qg-verify" class="qg-btn" type="button">🔌 Verify connectivity (Bell)</button>
+            <span id="qg-verify-out" class="qg-verify-out"></span>
+          </div>
         </div>
         <div class="qg-buttons">
           <button id="qg-run" class="qg-btn qg-btn-primary">🌀 Begin Measurement</button>
@@ -58,6 +75,12 @@
         <h3>Site quality <span id="qg-score" class="qg-score">0</span> / <span id="qg-threshold-show">85</span></h3>
         <div class="qg-gauge"><div class="qg-gauge-fill" id="qg-gauge-fill"></div><div class="qg-gauge-mark" id="qg-gauge-mark"></div></div>
         <div id="qg-metrics" class="qg-metrics"></div>
+      </div>
+
+      <div id="qg-negtime" class="qg-negtime" style="display:none;">
+        <h3>⏳ Negative-time readout <a class="qg-negtime-cite" href="https://arxiv.org/abs/2409.03680" target="_blank" rel="noopener">Steinberg/Angulo · arXiv:2409.03680</a></h3>
+        <div id="qg-negtime-body" class="qg-negtime-body"></div>
+        <p class="qg-negtime-note">The weak value of the atomic excitation time equals the optical group delay and can be <em>negative</em> — exactly as measured for photons in rubidium. This is <strong>not</strong> time travel, FTL signaling, or a causality violation; it is a phase-derivative / weak-value sign. It is a structural <em>cousin</em> (analogy, not identity) of this site's negative-size “entropy debt”.</p>
       </div>
     </section>
 

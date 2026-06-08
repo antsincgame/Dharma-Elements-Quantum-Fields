@@ -14,7 +14,7 @@
     "serve": "python3 -m http.server 8000",
     "generate": "node bin/generate.js",
     "selfcheck": "node test/selfcheck.js",
-    "test": "node test/selfcheck.js && node test/cloud-integration.js"
+    "test": "node test/selfcheck.js && node test/cloud-integration.js && node test/quantum.test.js"
   },
   "license": "MIT"
 }

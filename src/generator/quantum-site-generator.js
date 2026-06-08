@@ -187,9 +187,16 @@ export class Generator extends Emitter {
     if (guess && guess.candidates && guess.candidates.length) {
       const amps = guess.amplitudes || guess.candidates.map(() => 1);
       file.candidates = guess.candidates.map((content, i) => ({ content, weight: amps[i] || 0 }));
+      // Pick the collapsed candidate. A quantum engine returns `chosen` — a genuine
+      // Born-rule measurement outcome; otherwise fall back to the highest amplitude.
       let bestIdx = 0;
-      for (let i = 1; i < amps.length; i++) if (amps[i] > amps[bestIdx]) bestIdx = i;
+      if (guess.chosen != null && guess.chosen >= 0 && guess.chosen < guess.candidates.length) {
+        bestIdx = guess.chosen;
+      } else {
+        for (let i = 1; i < amps.length; i++) if (amps[i] > amps[bestIdx]) bestIdx = i;
+      }
       const best = guess.candidates[bestIdx] != null ? guess.candidates[bestIdx] : guess.candidates[0];
+      if (guess.quantum) file.quantum = guess.quantum; // measurement + negative-time telemetry
       applyMeasurement(file, best, guess.confidence != null ? guess.confidence : 0.5);
     } else {
       // No usable guess — still nudge the debt so the loop terminates.
