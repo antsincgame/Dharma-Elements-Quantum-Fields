@@ -1,0 +1,12 @@
+{
+  "id": "dharma-landing",
+  "title": "Dharma ⊗ Quantum Fields",
+  "theme": "A site bridging the five Buddhist elements with the fundamental quantum fields.",
+  "files": [
+    { "path": "index.html", "kind": "html", "intent": "Landing page: a hero invocation, the five element↔field correspondences, and a call to contemplate." },
+    { "path": "elements.html", "kind": "html", "intent": "A detailed page on each element and its dual quantum field, with formula and mantra." },
+    { "path": "about.html", "kind": "html", "intent": "About page: microcosm/macrocosm and the non-duality of quantum physics and dharma." },
+    { "path": "style.css", "kind": "css", "intent": "A stylesheet in a white-blue cosmic palette with golden-ratio spacing." },
+    { "path": "README.md", "kind": "md", "intent": "A readme describing the generated site and the element/field correspondence table." }
+  ]
+}

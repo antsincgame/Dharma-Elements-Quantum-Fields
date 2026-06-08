@@ -151,6 +151,58 @@ This is a sacred offering for the benefit of all beings. Contributions welcome i
 3. **Code with loving-kindness** and clear documentation
 4. **Test thoroughly** for cross-browser enlightenment
 
+## ⚛️ **Quantum-Informatics Website Generator** (शून्य निर्माता)
+
+An experimental generator where a site is described as a set of **null files of negative size** —
+placeholders that store no content. *Negative size* models an **entropy debt**: the information the
+generator still owes. Each file is also a **superposition** of candidate contents that an AI engine
+*measures*, paying down the debt geometrically until the file collapses to one value — repeating until
+the assembled site reaches a target **quality score**.
+
+This is grounded in two real ideas:
+- Quantum conditional entropy `S(A|B) = S(AB) − S(B)` **can be negative** (Horodecki–Oppenheim–Winter,
+  *"Quantum information can be negative"*) — a file of negative size is information you are *owed*.
+- The best predictor is the best compressor (Solomonoff / Kolmogorov), so an AI *guessing* a file is
+  just paying down its conditional description length.
+
+### Architecture (zero-dependency, browser + Node)
+
+```
+src/generator/        Framework-free ES-module core (runs in the browser and Node)
+  quantum-site-generator.js  NullFile model + negative-size math + Generator loop
+  engines.js                 QuantumSimulatorEngine (default) + LLMEngine (optional)
+  scorers.js                 HeuristicScorer + LLMScorer + CompositeScorer (hybrid)
+  vocabulary.js / prng.js / events.js / index.js
+src/generator.html    Interactive demo (size meters, quality gauge, live preview)
+src/generator-ui.js   DOM glue (imports the core; reuses the existing theme)
+bin/generate.js       Node CLI — writes a real static site to disk
+test/selfcheck.js     Zero-dependency smoke test
+```
+
+- **Engine** is pluggable: the offline **Quantum Simulator** synthesizes theme-coherent content from the
+  five-element/field vocabulary with a seeded PRNG (deterministic, reproducible from one seed); the
+  optional **LLM engine** calls a real Claude model via a configurable endpoint and *degrades to the
+  simulator* on any failure. In the browser the key must live behind a proxy — never in the client.
+- **Scoring** is hybrid: deterministic, Lighthouse-inspired heuristics (completeness, richness,
+  diversity, coherence, consistency, golden-ratio aesthetics) always run; an LLM judge can be blended in.
+
+### Try it
+
+```bash
+# Interactive demo
+python3 -m http.server 8000
+# → open http://localhost:8000/src/generator.html and press “Begin Measurement”
+
+# Node CLI — guess a real site to disk, deterministically
+node bin/generate.js --preset dharma-landing --out ./generated --threshold 85 --seed 108
+
+# Self-check
+node test/selfcheck.js
+```
+
+With a real model: `ANTHROPIC_API_KEY=... node bin/generate.js --engine llm` (falls back to the simulator
+if unset). Same `--seed` ⇒ byte-identical output.
+
 ## 📜 **License**
 
 Released under the **Dharma License** - may all beings benefit freely from this wisdom.

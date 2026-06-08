@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚛️ Quantum-Informatics Website Generator — ॐ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="qg-body">
+  <div class="header">
+    <h1>⚛️ Quantum-Informatics Website Generator</h1>
+    <p class="subtitle">शून्य निर्माता — null files of negative size, guessed by AI until the site blooms</p>
+  </div>
+
+  <div class="main-container qg-main">
+    <section class="visualization-section">
+      <h2>Null Files · Superposition → Collapse</h2>
+
+      <div class="qg-controls" id="qg-controls">
+        <div class="qg-control">
+          <label for="qg-preset">Site spec</label>
+          <select id="qg-preset"></select>
+        </div>
+        <div class="qg-control">
+          <label for="qg-seed">Quantum seed</label>
+          <input id="qg-seed" type="text" value="108">
+        </div>
+        <div class="qg-control">
+          <label for="qg-threshold">Quality threshold: <span id="qg-threshold-val">85</span></label>
+          <input id="qg-threshold" type="range" min="40" max="99" value="85">
+        </div>
+        <div class="qg-control">
+          <label for="qg-engine">Engine</label>
+          <select id="qg-engine">
+            <option value="sim">Quantum Simulator (offline)</option>
+            <option value="llm">Real LLM (via proxy)</option>
+          </select>
+        </div>
+        <div class="qg-control qg-control-wide" id="qg-endpoint-wrap" style="display:none;">
+          <label for="qg-endpoint">LLM proxy endpoint (no API key in the browser)</label>
+          <input id="qg-endpoint" type="text" placeholder="/api/generate">
+        </div>
+        <div class="qg-buttons">
+          <button id="qg-run" class="qg-btn qg-btn-primary">🌀 Begin Measurement</button>
+          <button id="qg-step" class="qg-btn">Step</button>
+          <button id="qg-reset" class="qg-btn">Reset</button>
+        </div>
+      </div>
+
+      <div id="qg-files" class="qg-files"></div>
+
+      <div class="qg-gauge-wrap">
+        <h3>Site quality <span id="qg-score" class="qg-score">0</span> / <span id="qg-threshold-show">85</span></h3>
+        <div class="qg-gauge"><div class="qg-gauge-fill" id="qg-gauge-fill"></div><div class="qg-gauge-mark" id="qg-gauge-mark"></div></div>
+        <div id="qg-metrics" class="qg-metrics"></div>
+      </div>
+    </section>
+
+    <section class="info-panel qg-panel">
+      <h2>Assembled site preview</h2>
+      <div id="qg-tabs" class="qg-tabs"></div>
+      <div id="qg-preview-wrap" class="qg-preview-wrap">
+        <iframe id="qg-preview" class="qg-preview" sandbox="allow-same-origin" title="Generated site preview"></iframe>
+        <pre id="qg-preview-text" class="qg-preview-text" style="display:none;"></pre>
+      </div>
+      <p class="qg-status" id="qg-status">Pick a spec and press “Begin Measurement”.</p>
+    </section>
+  </div>
+
+  <a class="qg-back" href="index.html">← Back to the Dharma · Quantum Fields visualization</a>
+
+  <script type="module" src="generator-ui.js"></script>
+</body>
+</html>
