@@ -5,6 +5,9 @@
 
 import { Scorer, byteLength, KIND_BANDS } from './quantum-site-generator.js';
 import { ELEMENTS, PHI } from './vocabulary.js';
+import {
+  resolveProvider, buildChatBody, buildChatHeaders, extractChatText,
+} from './llm-protocol.js';
 
 const ELEMENT_NAMES = ELEMENTS.map((e) => e.en);
 const FIELD_NAMES = ELEMENTS.map((e) => e.field);
@@ -105,14 +108,19 @@ export class HeuristicScorer extends Scorer {
   }
 }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-
+// The LLM judge speaks the same provider presets as LLMEngine, so the quality
+// score can come from Claude, LM Studio, Ollama or OpenAI alike.
 export class LLMScorer extends Scorer {
   constructor(opts = {}) {
     super();
+    this.provider = opts.provider || 'anthropic';
+    const preset = resolveProvider(this.provider);
+    this.protocol = opts.protocol || preset.protocol;
+    this.defaultUrl = preset.url;
+    this.local = preset.local;
     this.endpoint = opts.endpoint || null;
     this.apiKey = opts.apiKey || null;
-    this.model = opts.model || 'claude-opus-4-8';
+    this.model = opts.model || preset.model;
     this.maxTokens = opts.maxTokens || 200;
     this.anthropicVersion = opts.anthropicVersion || '2023-06-01';
     this.fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
@@ -120,38 +128,41 @@ export class LLMScorer extends Scorer {
   get name() {
     return 'llm-judge';
   }
+  _url() {
+    if (this.endpoint) return this.endpoint;
+    if (this.local) return this.defaultUrl;
+    if (this.apiKey) return this.defaultUrl;
+    return null;
+  }
   async available() {
-    return Boolean(this.fetchImpl && (this.endpoint || this.apiKey));
+    return Boolean(this.fetchImpl && this._url());
   }
 
   async score(site) {
-    const url = this.endpoint || (this.apiKey ? ANTHROPIC_URL : null);
+    const url = this._url();
     if (!url || !this.fetchImpl) throw new Error('LLMScorer unavailable');
     const assembled = site.files
       .map((f) => `=== ${f.path} ===\n${(f.content || '').slice(0, 1200)}`)
       .join('\n\n');
-    const headers = { 'content-type': 'application/json' };
-    if (this.apiKey && !this.endpoint) {
-      headers['x-api-key'] = this.apiKey;
-      headers['anthropic-version'] = this.anthropicVersion;
-    }
+    const headers = buildChatHeaders(this.protocol, {
+      apiKey: this.endpoint ? null : this.apiKey, // no key through a proxy / in the browser
+      anthropicVersion: this.anthropicVersion,
+    });
     const res = await this.fetchImpl(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
+      body: JSON.stringify(buildChatBody(this.protocol, {
         model: this.model,
-        max_tokens: this.maxTokens,
+        maxTokens: this.maxTokens,
         system:
           'You are a strict website quality judge. Rate the assembled site 0–100 on theme ' +
           'coherence, richness and polish. Reply with ONLY an integer.',
-        messages: [{ role: 'user', content: assembled }],
-      }),
+        user: assembled,
+      })),
     });
     if (!res.ok) throw new Error(`LLMScorer endpoint returned ${res.status}`);
     const data = await res.json();
-    const text = Array.isArray(data.content)
-      ? data.content.map((b) => (b && b.text) || '').join('')
-      : data.text || '';
+    const text = extractChatText(data) || '';
     const n = parseInt((text.match(/\d+/) || ['0'])[0], 10);
     const total = Math.max(0, Math.min(100, n));
     return { total, breakdown: { llm: total } };

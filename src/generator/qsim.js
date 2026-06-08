@@ -165,6 +165,7 @@ export class Statevector {
     const cum = new Float64Array(N);
     let acc = 0;
     for (let k = 0; k < N; k++) { acc += probs[k]; cum[k] = acc; }
+    if (acc <= 0) return {}; // zero-norm state (degenerate) → no outcomes, not silent zeros
     const counts = {};
     for (let s = 0; s < shots; s++) {
       const r = rng() * acc;

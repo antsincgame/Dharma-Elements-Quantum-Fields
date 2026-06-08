@@ -57,6 +57,7 @@ export function groupDelay(detuning, opts = {}) {
   const d2 = detuning * detuning;
   const g2 = gamma * gamma;
   const denom = (d2 + g2) * (d2 + g2);
+  if (denom === 0) return 0; // γ=Δ=0 → no absorber, no delay (avoid 0/0 = NaN)
   return (-depth * gamma * (g2 - d2)) / denom;
 }
 

@@ -58,6 +58,13 @@ function makeEngine() {
     const endpoint = $('qg-endpoint').value.trim() || null;
     return new LLMEngine({ endpoint, fallback: simulator }); // no API key in the browser
   }
+  if (mode === 'lmstudio') {
+    // Local OpenAI-compatible server — keyless, called directly from the browser
+    // (or via /api/llm). Blank endpoint → the LM Studio default localhost URL.
+    const endpoint = $('qg-lm-endpoint').value.trim() || null;
+    const model = $('qg-lm-model').value.trim() || null;
+    return new LLMEngine({ provider: 'lmstudio', endpoint, model, fallback: simulator });
+  }
   if (mode === 'quantum') {
     // Candidate selection becomes a real Born-rule measurement. With the QRNG
     // backend + proxy the collapses are seeded by real quantum entropy.
@@ -353,7 +360,7 @@ function init() {
   // The orbital cloud is purely additive eye-candy; if Three.js fails to load it
   // disables itself gracefully and the generator keeps working offline.
   try {
-    field = new SuperpositionField($('qg-cloud'), { pointsPerCloud: 6000 });
+    field = new SuperpositionField($('qg-cloud'), { pointsPerCloud: 9000 });
   } catch (err) {
     if (typeof console !== 'undefined') console.warn('[qiwg] superposition cloud disabled:', err);
     field = null;
@@ -373,6 +380,7 @@ function init() {
   });
   $('qg-engine').addEventListener('change', (e) => {
     $('qg-endpoint-wrap').style.display = e.target.value === 'llm' ? 'flex' : 'none';
+    $('qg-lmstudio-wrap').style.display = e.target.value === 'lmstudio' ? 'flex' : 'none';
     $('qg-quantum-wrap').style.display = e.target.value === 'quantum' ? 'flex' : 'none';
   });
   $('qg-verify').addEventListener('click', verifyQuantum);

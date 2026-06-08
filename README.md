@@ -171,8 +171,9 @@ This is grounded in two real ideas:
 src/generator/        Framework-free ES-module core (runs in the browser and Node)
   quantum-site-generator.js  NullFile model + negative-size math + Generator loop
   engines.js                 QuantumSimulatorEngine (default) + LLMEngine (optional)
+  llm-protocol.js            Anthropic + OpenAI-compatible (LM Studio/Ollama/OpenAI) shaping
   scorers.js                 HeuristicScorer + LLMScorer + CompositeScorer (hybrid)
-  orbitals.js                |ψ|² orbital sampling for the superposition cloud
+  orbitals.js                |ψ|² orbital sampling (1s/2s/2p/3s/3p/3d, radial+angular nodes)
   qsim.js                    state-vector quantum simulator + OpenQASM-3 export
   backends.js                QuantumBackend: local / ANU QRNG / IBM (+ Braket/Azure stubs)
   quantum-engine.js          QuantumMeasurementEngine — Born-rule candidate selection
@@ -180,21 +181,34 @@ src/generator/        Framework-free ES-module core (runs in the browser and Nod
   entanglement.js            Bell states, EntangledPair, and the CHSH Bell test
   bloch.js                   Bloch-sphere geometry for the qubit-state cloud view
   zip.js                     zero-dependency ZIP writer (one-click site download)
+  web-field.js               emergent web-field — quantum cellular automaton over web blocks
+  agent.js                   wu-wei agent — toolset + "do nothing" loop (LLM-ready)
+  web-materialize.js         collapse an evolved field into a real, unique HTML+CSS site
+  llm-decider.js             let a real LLM be the agent's will (tool choice), offline-safe
   vocabulary.js / prng.js / events.js / index.js
 src/generator.html    Interactive demo (orbital/Bloch cloud, meters, gauge, preview, download)
 src/generator-ui.js   DOM glue (imports the core; reuses the existing theme)
 src/superposition-cloud.js  Three.js layer — orbital cloud + Bloch-sphere mode
+src/emergent-ui.js    Live emergent view — field canvas + agent journal + site preview
 server/quantum-proxy.js     Example server — keeps API keys off the client (QRNG/IBM/LLM)
 bin/generate.js       Node CLI — writes a real static site to disk
 test/selfcheck.js          Zero-dependency smoke test (core + orbital math)
 test/cloud-integration.js  Cloud integration test (mock-THREE contract)
 test/quantum.test.js       Quantum layer (simulator, backends, Born selection, neg-time)
+test/entanglement.test.js  Bell states, EntangledPair, and the CHSH Bell test
+test/orbitals.test.js      Orbital sampling — r² Jacobian, |Y_lm|² rejection, radial nodes
+test/llm.test.js           LLM providers (Anthropic + OpenAI/LM Studio), key-safety, fallback
+test/proxy.test.js         Proxy hardening — path-traversal guard, /api/llm validation
+test/web-field.test.js     Emergent CA — determinism, region emergence, 生/克 affinity
+test/emergent.test.js      Wu-wei agent (tools + "do nothing") + field→website materializer
 ```
 
 - **Engine** is pluggable: the offline **Quantum Simulator** synthesizes theme-coherent content from the
   five-element/field vocabulary with a seeded PRNG (deterministic, reproducible from one seed); the
-  optional **LLM engine** calls a real Claude model via a configurable endpoint and *degrades to the
-  simulator* on any failure. In the browser the key must live behind a proxy — never in the client.
+  optional **LLM engine** calls a real model via a configurable endpoint — **Claude** (Anthropic) or any
+  **OpenAI-compatible** server, most notably a **local [LM Studio](https://lmstudio.ai)** (no API key) — and
+  *degrades to the simulator* on any failure. A hosted key must live behind a proxy, never in the client;
+  a local LM Studio server needs no key at all.
 - **Scoring** is hybrid: deterministic, Lighthouse-inspired heuristics (completeness, richness,
   diversity, coherence, consistency, golden-ratio aesthetics) always run; an LLM judge can be blended in.
 - **Superposition cloud** (Three.js): each null file is drawn as a point cloud sampled from a
@@ -203,17 +217,67 @@ test/quantum.test.js       Quantum layer (simulator, backends, Born selection, n
   from `P(r) = r²·R_nl(r)²` — the **r² shell factor** is essential, or the cloud would wrongly pile up at
   the origin. The five files map to the five elements ↔ fields by the field's **spin → orbital momentum
   l**: Higgs (spin 0) → `1s`, the spin-1 vector/gauge fields → `2pₓ/2p_y/2p_z`, the spin-2 vacuum → `3d`.
-  Rendering uses additive-blended `THREE.Points` with `depthWrite:false` and a procedural glow shader; if
-  Three.js can't load, the cloud disables itself and the generator keeps working fully offline.
+  The library also includes the **radial-node orbitals `2s/3s/3p`** (concentric shells separated by nodal
+  spheres) and the full d-set — the phase color is `sign(R_nl)·sign(Y_lm)`, so both **radial and angular
+  nodes** flip the lobe color, exactly as in professional orbital visualizers.
+- **Rendering** uses additive-blended `THREE.Points` with `depthWrite:false` and a procedural **Gaussian**
+  glow shader, sRGB output, and an *optional* HDR **`UnrealBloomPass`** (loaded as classic scripts — if it
+  or Three.js can't load, the cloud renders directly / disables itself and the generator keeps working
+  fully offline).
 
 #### Offline preview (no browser)
 
 `node examples/render-clouds.js` rasterizes the **real orbital geometry** (the same `orbitals.js` sampling)
-with additive glow + bloom into PNGs under `docs/previews/` — a browser-free way to verify the graphics.
-The phase sign tints each lobe (warm = +, cool = −).
+into PNGs under `docs/previews/` at scientific-visualization quality — a browser-free way to verify the
+graphics. The pipeline is **supersampled** (clean anti-aliasing), **depth-cued** (far points dim), with a
+**diverging phase palette** (element hue = ψ>0, icy complement = ψ<0), threshold **bloom**, and **ACES**
+filmic tone mapping + sRGB.
 
-![Five element orbitals: 1s · 2pₓ · 2p_y · 2p_z · 3d_z²](docs/previews/cloud-contact.png)
+The contact sheet tours the orbital structure — note the **radial nodes**: the `2s` core-plus-shell and the
+`3s` concentric shells (dark nodal gaps), the `2p_z/3p_z` lobes, and the `3d_z²` polar lobes + icy torus.
+
+![Orbital structure tour: 1s · 2s · 2p_z · 3s · 3p_z · 3d_z² (radial nodes visible)](docs/previews/cloud-contact.png)
 ![Golden-ratio mandala of the five element clouds](docs/previews/cloud-mandala.png)
+
+### 🌱 Emergent generator — a website that *grows* (not a template)
+
+Instead of slot-filling a fixed spec, the **emergent generator** lets a real site self-assemble from
+randomness and local interaction — two layers:
+
+- **Bottom (physics):** `web-field.js` is a **quantum cellular automaton** over web "building blocks"
+  (void · text · heading · media · accent · quote · rule · link). Each tick, a cell's next block is decided
+  by its neighbors **and a Born-rule draw**, so coherent regions (sections) crystallize out of a near-empty
+  field — `縁起` / dependent origination made literal. Elements influence neighbors by a **generative/
+  overcoming cycle** (生/克, Wu-Xing-style). VOID is favored (`śūnyatā` / `無爲`), so the page stays spacious.
+- **Top (agency):** `agent.js` is a **wu-wei agent** given a small **toolset** (`rest · contemplate · seed ·
+  perturb · infuse · accent · freeze`) and one koan — **"do nothing."** It mostly abides and only now and
+  then touches the field, expressing itself with no task. Offline its choices are a quantum-seeded draw
+  (rest-dominant); pass an async `decide` hook to let a real LLM choose tools (same interface, no fetch in
+  the core). Every action is logged as an "intention".
+- **Materialize:** `web-materialize.js` collapses the evolved field into a **real, unique HTML+CSS site** —
+  the section count, order, content and palette all emerge from the field, so a different seed (or agent run)
+  yields a genuinely different website, never a template.
+
+- **Real model as the agent's will:** `llm-decider.js` lets the agent's tool choices come from a real LLM
+  (LM Studio / Claude / any OpenAI-compatible server) under the "do nothing" koan — same provider presets as
+  the rest of the project, key never in the browser, and **`null` on any failure → the offline quantum draw**
+  so the loop never stalls.
+- **Live in the browser:** `generator.html` has an **🌱 Emergent** section — the field evolves on a canvas,
+  the agent's *intentions* stream in a journal, and the materializing site updates in a live preview. Pick the
+  agent's will: **Quantum (offline)**, **LM Studio (local)**, or **Claude (proxy)**. Download the grown site
+  as a `.zip`.
+
+```bash
+# Headless: watch the field emerge (ASCII) + the agent's journal, then a real site
+node examples/emergent-web.js OM 30                 # → generated/emergent/index.html
+
+# CLI: grow + write a real site (quantum will, or an LLM will via --engine)
+node bin/generate.js --emergent --out ./generated/emergent --seed 108
+node bin/generate.js --emergent --engine lmstudio   # the agent's will = a local model (falls back to quantum)
+
+# Browser: open http://localhost:8000/src/generator.html → the 🌱 Emergent section
+python3 -m http.server 8000
+```
 
 ### Real quantum measurement + "negative time"
 
@@ -285,6 +349,32 @@ The UI adds a **Bell-test panel** showing `S` against the classical (2) and Tsir
   equator (superposition) to a pole (collapsed) as it is measured, the uncertainty cloud shrinking with it.
 - **Download** — once a site is generated, **⬇ Download .zip** packages the assembled files into a ZIP
   (a tiny in-repo, zero-dependency ZIP writer — no library) for a one-click save.
+
+### 🖥️ Local LLM via LM Studio (no API key)
+
+The LLM engine speaks two protocols: **Anthropic Messages** (Claude) and the **OpenAI-compatible**
+chat API used by [**LM Studio**](https://lmstudio.ai), Ollama, llama.cpp and OpenAI. Pick a provider with
+`provider:` (`anthropic` · `lmstudio` · `ollama` · `openai`); shared shaping lives in
+`src/generator/llm-protocol.js`.
+
+LM Studio is the sweet spot for this project: it runs **entirely on your machine**, needs **no API key**,
+and enables **CORS** by default — so the browser may call it *directly*, with **no secret anywhere** (the
+project's golden rule, satisfied trivially). Whole-file ` ``` ` code fences that local models sometimes emit
+are stripped automatically.
+
+```bash
+# 1) In LM Studio: load a model → Developer tab → Start Server (http://localhost:1234)
+# 2) Browser demo: pick engine "🖥️ LM Studio (local, no key)" and press Begin Measurement
+python3 -m http.server 8000      # → http://localhost:8000/src/generator.html
+
+# Node CLI — guess a real site with your local model
+node bin/generate.js --engine lmstudio --out ./generated
+node bin/generate.js --engine lmstudio --model qwen2.5-coder-7b --blend-scorer   # LM Studio as judge too
+```
+
+If LM Studio's CORS is off (or you prefer one origin), relay it same-origin through the proxy: run
+`LMSTUDIO_URL=… npm run serve:proxy` and point the endpoint at `/api/llm`. Either way, **no LM Studio →
+the run degrades cleanly to the offline simulator**, so it never hard-fails.
 
 ### Try it
 

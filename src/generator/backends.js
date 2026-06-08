@@ -46,7 +46,6 @@ export class QRNGBackend extends QuantumBackend {
     this.endpoint = opts.endpoint || null; // browser: same-origin proxy
     this.fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
     this.fallback = opts.fallback || new LocalSimulatorBackend(opts);
-    this._pool = [];
   }
   get name() { return 'qrng-anu'; }
   async available() { return Boolean(this.fetchImpl && (this.apiKey || this.endpoint)); }

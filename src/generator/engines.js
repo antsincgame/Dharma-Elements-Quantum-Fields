@@ -3,13 +3,18 @@
 //     theme-coherent content from the dharma/quantum vocabulary using a seeded
 //     PRNG; generates several candidates (the superposition) and reports an
 //     amplitude per candidate.
-//   • LLMEngine — optional. Same interface, but asks a real Claude model via a
-//     configurable endpoint. Never embeds an API key in the browser (use a
-//     proxy); in Node it reads ANTHROPIC_API_KEY. Degrades to a fallback engine
-//     (the simulator) on any error, so the run never hard-fails.
+//   • LLMEngine — optional. Same interface, but asks a real model via a
+//     configurable endpoint: Claude (Anthropic) or any OpenAI-compatible server
+//     (LM Studio, Ollama, OpenAI). Never embeds an API key in the browser (use a
+//     proxy, or a keyless local server); in Node it reads the provider's env key.
+//     Degrades to a fallback engine (the simulator) on any error, so the run
+//     never hard-fails.
 
 import { Engine } from './quantum-site-generator.js';
 import { ELEMENTS, CONCEPT_PAIRS, MANTRAS, FRAGMENTS, PALETTE, PHI } from './vocabulary.js';
+import {
+  resolveProvider, buildChatBody, buildChatHeaders, extractChatText, stripOuterCodeFence,
+} from './llm-protocol.js';
 
 function esc(s) {
   return String(s)
@@ -229,43 +234,56 @@ export class QuantumSimulatorEngine extends Engine {
 }
 
 // ---- Optional real-LLM engine --------------------------------------------
-
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+//
+// One engine, two protocols. `provider` picks a preset:
+//   • 'anthropic' (default) — Claude via the Messages API (Node key or a proxy).
+//   • 'lmstudio'            — a LOCAL OpenAI-compatible server (http://localhost:1234),
+//                             keyless and CORS-enabled, so the browser may call it
+//                             directly (no proxy, no secret).
+//   • 'ollama' / 'openai'   — other OpenAI-compatible servers.
+// Any failure (no config, network error, bad reply) degrades to the simulator, so
+// a run never hard-fails.
 
 export class LLMEngine extends Engine {
   constructor(opts = {}) {
     super();
-    this.endpoint = opts.endpoint || null; // browser: a same-origin proxy URL
+    this.provider = opts.provider || 'anthropic';
+    const preset = resolveProvider(this.provider);
+    this.protocol = opts.protocol || preset.protocol; // 'anthropic' | 'openai'
+    this.defaultUrl = preset.url; // the provider's own endpoint
+    this.local = preset.local; // keyless local server on a default port (LM Studio/Ollama)
+    this.endpoint = opts.endpoint || null; // explicit URL: a proxy, or a local server's own URL
     this.apiKey = opts.apiKey || null; // Node only — never set this in a browser
-    this.model = opts.model || 'claude-opus-4-8';
+    this.model = opts.model || preset.model;
     this.maxTokens = opts.maxTokens || 1500;
+    this.temperature = opts.temperature != null ? opts.temperature : null;
     this.anthropicVersion = opts.anthropicVersion || '2023-06-01';
     this.fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
     this.fallback = opts.fallback || new QuantumSimulatorEngine();
   }
   get name() {
-    return 'llm';
+    return this.provider === 'anthropic' ? 'llm' : `llm-${this.provider}`;
   }
 
   async available() {
-    return Boolean(this.fetchImpl && (this.endpoint || this.apiKey));
+    return Boolean(this.fetchImpl && this._url());
   }
 
   _url() {
-    if (this.endpoint) return this.endpoint;
-    if (this.apiKey) return ANTHROPIC_URL;
+    if (this.endpoint) return this.endpoint; // proxy or an explicit server URL
+    if (this.local) return this.defaultUrl; // keyless local server on its default port
+    if (this.apiKey) return this.defaultUrl; // direct provider call with a key (Node)
     return null;
   }
 
   _headers() {
-    const headers = { 'content-type': 'application/json' };
-    // Only attach the key when calling Anthropic directly (Node). A browser
+    // Attach the key only on a DIRECT keyed provider call (no proxy endpoint). A
     // proxy injects the key server-side; the key must never reach the client.
-    if (this.apiKey && !this.endpoint) {
-      headers['x-api-key'] = this.apiKey;
-      headers['anthropic-version'] = this.anthropicVersion;
-    }
-    return headers;
+    const direct = !this.endpoint;
+    return buildChatHeaders(this.protocol, {
+      apiKey: direct ? this.apiKey : null,
+      anthropicVersion: this.anthropicVersion,
+    });
   }
 
   _buildPrompt(file, ctx) {
@@ -287,19 +305,6 @@ export class LLMEngine extends Engine {
     return { system, user };
   }
 
-  _extractText(data) {
-    if (!data) return null;
-    if (typeof data === 'string') return data;
-    if (typeof data.text === 'string') return data.text; // simple proxy shape
-    if (Array.isArray(data.content)) {
-      return data.content
-        .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
-        .map((b) => b.text)
-        .join('');
-    }
-    return null;
-  }
-
   async guess(file, ctx) {
     const url = this._url();
     if (!url || !this.fetchImpl) return this.fallback.guess(file, ctx);
@@ -308,18 +313,23 @@ export class LLMEngine extends Engine {
       const res = await this.fetchImpl(url, {
         method: 'POST',
         headers: this._headers(),
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: this.maxTokens,
-          system,
-          messages: [{ role: 'user', content: user }],
-        }),
+        body: JSON.stringify(buildChatBody(this.protocol, {
+          model: this.model, maxTokens: this.maxTokens, system, user, temperature: this.temperature,
+        })),
       });
       if (!res.ok) throw new Error(`LLM endpoint returned ${res.status}`);
       const data = await res.json();
-      const text = this._extractText(data);
+      const text = extractChatText(data);
       if (!text) throw new Error('LLM response had no text content');
-      return { candidates: [text], amplitudes: [1], confidence: 0.92 };
+      // Warn if the reply was cut off at the token limit (silently truncated files
+      // are worse than a loud warning — raise maxTokens for long files).
+      const choice = Array.isArray(data.choices) ? data.choices[0] : null;
+      if ((data.stop_reason === 'max_tokens' || (choice && choice.finish_reason === 'length'))
+        && typeof console !== 'undefined') {
+        console.warn(`[qiwg] LLM reply truncated at max_tokens=${this.maxTokens} for ${file.path} — raise maxTokens for longer files.`);
+      }
+      // Local models often fence the whole file despite the prompt — unwrap it.
+      return { candidates: [stripOuterCodeFence(text)], amplitudes: [1], confidence: 0.92 };
     } catch (err) {
       if (typeof console !== 'undefined') console.warn('[qiwg] LLMEngine fell back to simulator:', err.message);
       return this.fallback.guess(file, ctx);

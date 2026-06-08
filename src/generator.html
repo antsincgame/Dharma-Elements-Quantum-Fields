@@ -40,12 +40,20 @@
           <select id="qg-engine">
             <option value="sim">Quantum Simulator (offline)</option>
             <option value="quantum">⚛️ Quantum measurement (Born collapse)</option>
-            <option value="llm">Real LLM (via proxy)</option>
+            <option value="lmstudio">🖥️ LM Studio (local, no key)</option>
+            <option value="llm">Claude (via proxy)</option>
           </select>
         </div>
         <div class="qg-control qg-control-wide" id="qg-endpoint-wrap" style="display:none;">
-          <label for="qg-endpoint">LLM proxy endpoint (no API key in the browser)</label>
+          <label for="qg-endpoint">Claude proxy endpoint (no API key in the browser)</label>
           <input id="qg-endpoint" type="text" placeholder="/api/generate">
+        </div>
+        <div class="qg-control qg-control-wide" id="qg-lmstudio-wrap" style="display:none;">
+          <label for="qg-lm-endpoint">LM Studio endpoint (runs locally — no API key, OpenAI-compatible)</label>
+          <input id="qg-lm-endpoint" type="text" value="http://localhost:1234/v1/chat/completions">
+          <label for="qg-lm-model" style="margin-top:6px;">Model (optional — blank uses whatever model is loaded in LM Studio)</label>
+          <input id="qg-lm-model" type="text" placeholder="local-model">
+          <p class="qg-hint">Start LM Studio → <em>Developer</em> tab → <strong>Start Server</strong> (enable CORS). Or relay same-origin via the proxy: set the endpoint to <code>/api/llm</code>.</p>
         </div>
         <div class="qg-control qg-control-wide" id="qg-quantum-wrap" style="display:none;">
           <label for="qg-backend">Quantum backend (candidate selection = real Born-rule measurement)</label>
@@ -111,11 +119,51 @@
     </section>
   </div>
 
+  <section class="qg-emergent" id="qg-emergent">
+    <h2>🌱 Emergent — a site that grows <span class="qg-negtime-cite">no template · 縁起 + 無爲</span></h2>
+    <p class="qg-em-lede">A quantum cellular field tended by a wu-wei agent under one koan — <em>“do nothing.”</em> Coherent sections crystallize from randomness and local interaction; the agent mostly abides and only now and then touches the field; a real, unique website materializes live.</p>
+    <div class="qg-em-controls">
+      <label class="qg-em-ctrl">Seed <input id="qg-em-seed" type="text" value="108"></label>
+      <label class="qg-em-ctrl">Agent will
+        <select id="qg-em-will">
+          <option value="offline">Quantum (offline)</option>
+          <option value="lmstudio">🖥️ LM Studio (local, no key)</option>
+          <option value="claude">Claude (via proxy)</option>
+        </select>
+      </label>
+      <input id="qg-em-endpoint" type="text" class="qg-em-endpoint" placeholder="endpoint" style="display:none;">
+      <button id="qg-em-run" class="qg-btn qg-btn-primary" type="button">🌱 Begin</button>
+      <button id="qg-em-reset" class="qg-btn" type="button">Reset</button>
+      <button id="qg-em-download" class="qg-btn" type="button">⬇ Download .zip</button>
+    </div>
+    <div class="qg-em-grid">
+      <div class="qg-em-fieldwrap">
+        <canvas id="qg-em-canvas" class="qg-em-canvas" width="560" height="340"></canvas>
+        <div id="qg-em-stats" class="qg-em-stats">field at rest — press Begin</div>
+      </div>
+      <div class="qg-em-journal-wrap">
+        <h3>🪷 Agent intentions <span id="qg-em-count" class="qg-em-count"></span></h3>
+        <div id="qg-em-journal" class="qg-em-journal"></div>
+      </div>
+    </div>
+    <h3 class="qg-em-previewhead">Live preview — the materializing site</h3>
+    <iframe id="qg-em-preview" class="qg-em-preview" sandbox="allow-same-origin" title="Emergent site preview"></iframe>
+  </section>
+
   <a class="qg-back" href="index.html">← Back to the Dharma · Quantum Fields visualization</a>
 
   <!-- Three.js r128 (same CDN as the main visualization). Classic script: runs
        before the deferred ES module below, so `THREE` is a ready global there. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Optional postprocessing for HDR bloom (classic scripts attaching to THREE).
+       If any fail to load, the superposition cloud renders directly — no hard dep. -->
+  <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
   <script type="module" src="generator-ui.js"></script>
+  <script type="module" src="emergent-ui.js"></script>
 </body>
 </html>

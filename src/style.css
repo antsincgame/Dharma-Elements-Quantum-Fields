@@ -506,6 +506,20 @@ body.qg-body {
     grid-column: 1 / -1;
 }
 
+.qg-hint {
+    margin: 6px 0 0;
+    font-size: 0.82em;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.qg-hint code {
+    background: #eef2ff;
+    color: #4338ca;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
 .qg-control label {
     color: #374151;
     font-weight: 600;
@@ -1011,4 +1025,77 @@ body.qg-body {
     background: #16a34a;
     box-shadow: 0 0 8px rgba(22, 163, 74, 0.7);
     transition: left 0.5s ease;
+}
+
+/* ── 🌱 Emergent generator (a site that grows) ─────────────────────────── */
+.qg-emergent {
+    margin: 28px 0;
+    padding: 22px;
+    border-radius: 16px;
+    background: radial-gradient(120% 100% at 50% 0%, #0b1026, #05060f);
+    color: #dbe4ff;
+    border: 1px solid rgba(124, 58, 237, 0.35);
+}
+.qg-emergent h2 { color: #fff; font-weight: 400; margin-top: 0; }
+.qg-em-lede { color: #8aa0d0; max-width: 60ch; }
+.qg-em-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 14px 0;
+}
+.qg-em-ctrl { display: flex; flex-direction: column; gap: 4px; font-size: 0.82em; color: #8aa0d0; }
+.qg-em-controls input[type="text"],
+.qg-em-controls select {
+    padding: 6px 8px;
+    border: 1px solid #2a3566;
+    border-radius: 6px;
+    background: #0b1026;
+    color: #dbe4ff;
+}
+.qg-em-endpoint { min-width: 16rem; align-self: flex-end; }
+.qg-em-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+@media (max-width: 720px) { .qg-em-grid { grid-template-columns: 1fr; } }
+.qg-em-canvas {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    background: #05060f;
+    box-shadow: inset 0 0 40px rgba(124, 58, 237, 0.15);
+}
+.qg-em-stats {
+    margin-top: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.78em;
+    color: #8aa0d0;
+}
+.qg-em-journal-wrap h3 { margin: 0 0 8px; font-weight: 400; color: #c9b6ff; }
+.qg-em-count { color: #8aa0d0; font-size: 0.7em; }
+.qg-em-journal {
+    height: 300px;
+    overflow-y: auto;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.78em;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+.qg-em-entry { padding: 2px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+.qg-em-t { color: #f5c451; }
+.qg-em-act { color: #7dd3fc; font-weight: 600; }
+.qg-em-note { color: #8aa0d0; }
+.qg-em-previewhead { font-weight: 400; color: #c9b6ff; margin-top: 18px; }
+.qg-em-preview {
+    width: 100%;
+    height: 420px;
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 12px;
+    background: #05060f;
 }

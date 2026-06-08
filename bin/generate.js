@@ -29,6 +29,11 @@ import {
   createRng,
   SITE_SPECS,
   byteLength,
+  createField,
+  runAgent,
+  journalStats,
+  materializeField,
+  makeLLMDecider,
 } from '../src/generator/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -65,9 +70,10 @@ Options:
   --threshold <n>      Target quality score 0-100 (default: 80)
   --budget <n>         Max measurement steps (default: 200)
   --seed <s>           PRNG seed for reproducibility (default: OM)
-  --engine sim|llm|quantum   Generation engine (default: sim)
-  --endpoint <url>     LLM proxy endpoint (browser-style); Node can also use ANTHROPIC_API_KEY
-  --model <id>         LLM model id (default: claude-opus-4-8)
+  --engine sim|llm|lmstudio|ollama|openai|quantum   Generation engine (default: sim)
+  --provider <id>      LLM provider preset: anthropic|lmstudio|ollama|openai (overrides --engine mapping)
+  --endpoint <url>     LLM endpoint: a proxy, or a local server's own URL (e.g. http://localhost:1234/v1/chat/completions)
+  --model <id>         LLM model id (default: the provider's preset model)
   --blend-scorer       Blend an LLM judge into the heuristic score (needs endpoint/key)
   --backend <id>       Quantum backend: local|qrng|ibm|braket|azure (default: local)
   --qrng-key <key>     ANU QRNG api key (or env ANU_QRNG_KEY) → real quantum entropy for --engine quantum
@@ -76,6 +82,8 @@ Options:
   --ibm-backend <id>   IBM device name (default: ibm_brisbane)
   --verify-quantum     Run a Bell circuit on --backend and print the counts (connectivity check)
   --bell-test          Run a CHSH Bell test on --backend (classical ≤ 2, quantum → 2√2)
+  --emergent           Grow a site from a quantum field tended by a wu-wei agent (not a template)
+  --ticks <n>          Emergent: number of agent/field ticks (default: 32)
   --quiet              Suppress per-step logging
   --help               Show this help
 `);
@@ -106,9 +114,17 @@ async function main() {
   const seed = args.seed != null ? String(args.seed) : 'OM';
   const quiet = Boolean(args.quiet);
 
-  const apiKey = process.env.ANTHROPIC_API_KEY || null;
+  // LLM provider: --provider wins; otherwise map --engine (llm → Claude, others 1:1).
+  const LLM_ENGINES = ['llm', 'lmstudio', 'ollama', 'openai'];
+  const provider = args.provider
+    ? String(args.provider)
+    : (args.engine === 'llm' ? 'anthropic' : String(args.engine || ''));
+  // Keys come from the environment, per provider. Local servers are keyless.
+  const apiKey = provider === 'openai'
+    ? (process.env.OPENAI_API_KEY || null)
+    : (process.env.ANTHROPIC_API_KEY || null);
   const endpoint = args.endpoint ? String(args.endpoint) : null;
-  const model = args.model ? String(args.model) : 'claude-opus-4-8';
+  const model = args.model ? String(args.model) : null; // null → provider preset default
 
   // Quantum backend credentials (for --verify-quantum and the quantum engine).
   const backendId = args.backend ? String(args.backend) : 'local';
@@ -141,12 +157,41 @@ async function main() {
     console.log(`  ${r.violates ? '✓ Bell inequality VIOLATED — interbeing is real (प्रतीत्यसमुत्पाद ↔ entanglement)' : '✗ no violation (classical/degraded path)'}`);
   }
 
+  // 🌱 Emergent mode: a website that GROWS from a quantum cellular field tended by a
+  // wu-wei agent (koan: "do nothing"). With an LLM provider the agent's will is a real
+  // model; otherwise its choices are a quantum-seeded draw. Writes a real, unique site.
+  if (args.emergent) {
+    const ticks = Number(args.ticks != null ? args.ticks : 32);
+    const rng = createRng('web:' + seed);
+    const field = createField({ rows: 22, cols: 40, rng, density: 0.06 });
+    let decide = null;
+    if (LLM_ENGINES.includes(args.engine) || args.provider) {
+      decide = makeLLMDecider({ provider, endpoint, apiKey, model });
+      console.log(`🪷 Emergent agent · will = ${decide ? `${provider} (LLM, falls back to quantum per-tick)` : 'quantum (no LLM wired)'}`);
+    } else {
+      console.log('🪷 Emergent agent · will = quantum (offline)');
+    }
+    const { field: grown, journal } = await runAgent({ field, rng, ticks, decide });
+    const js = journalStats(journal);
+    for (const e of journal.filter((x) => x.action !== 'rest').slice(0, 10)) {
+      console.log(`  tick ${String(e.tick).padStart(2)} · ${e.action.padEnd(11)} ${e.note}`);
+    }
+    console.log(`  …abided ${js.abided}/${js.total} ticks · acted ${js.acted} · tools ${JSON.stringify(js.counts)}`);
+    const site = materializeField(grown, { rng: createRng('mat:' + seed), title: 'शून्य निर्माण — seed ' + seed });
+    mkdirSync(outDir, { recursive: true });
+    for (const name of Object.keys(site)) writeFileSync(join(outDir, name), site[name]);
+    const secN = (site['index.html'].match(/class="em /g) || []).length;
+    console.log(`\n🏛️  Materialized a real, emergent website → ${outDir}`);
+    console.log(`  ${secN} emergent sections · ${byteLength(site['index.html'])} bytes HTML + ${byteLength(site['style.css'])} bytes CSS`);
+    return;
+  }
+
   const simulator = new QuantumSimulatorEngine();
   let engine = simulator;
-  if (args.engine === 'llm') {
-    engine = new LLMEngine({ endpoint, apiKey, model, fallback: simulator });
+  if (LLM_ENGINES.includes(args.engine) || args.provider) {
+    engine = new LLMEngine({ provider, endpoint, apiKey, model, fallback: simulator });
     if (!(await engine.available())) {
-      console.warn('[qiwg] LLM engine requested but no endpoint/ANTHROPIC_API_KEY found — using simulator.');
+      console.warn(`[qiwg] LLM engine (${provider}) requested but no endpoint/key found — using simulator.`);
       engine = simulator;
     }
   } else if (args.engine === 'quantum') {
@@ -163,7 +208,7 @@ async function main() {
 
   let scorer = new HeuristicScorer();
   if (args['blend-scorer']) {
-    const llmScorer = new LLMScorer({ endpoint, apiKey, model });
+    const llmScorer = new LLMScorer({ provider, endpoint, apiKey, model });
     if (await llmScorer.available()) {
       scorer = new CompositeScorer({ base: scorer, llm: llmScorer });
     } else {
