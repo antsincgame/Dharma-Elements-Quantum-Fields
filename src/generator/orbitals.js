@@ -16,10 +16,15 @@
 // We work in dimensionless atomic units (a₀ = 1) and drop overall normalization
 // constants: only the SHAPE of |ψ|² matters for sampling (M-normalized rejection).
 
-// Each orbital: radial(r) ∝ R_nl(r); angular(ux,uy,uz) is the SIGNED real spherical
-// harmonic on the unit sphere (its sign is the wavefunction phase, used for color);
-// angularMax = max|angular| over the sphere; rPeak ≈ most-probable radius (used to
-// normalize cloud size); rMax = radius beyond which density is negligible.
+// Each orbital: radial(r) ∝ R_nl(r) (may be SIGNED — it flips across a radial node);
+// angular(ux,uy,uz) is the SIGNED real spherical harmonic on the unit sphere. The
+// wavefunction phase used for color is sign(R_nl)·sign(Y_lm), so both radial and
+// angular nodes change the lobe color. angularMax = max|angular| over the sphere;
+// rPeak ≈ most-probable radius (used to normalize cloud size); rMax = radius beyond
+// which density is negligible.
+//
+// Node-bearing orbitals (2s, 3s, 3p) show the hallmark concentric shells of QM;
+// node-free ones (1s, 2p, 3d) keep R ≥ 0, so their phase is purely angular.
 export const ORBITALS = {
   // 1s (l=0): spherical, isotropic. P(r)=r²e^{-2r} peaks at r=a₀=1.
   '1s': {
@@ -29,6 +34,18 @@ export const ORBITALS = {
     angularMax: 1,
     rPeak: 1,
     rMax: 9,
+  },
+  // 2s (l=0): one RADIAL NODE at r=2a₀ — a small inner core wrapped in a hollow
+  // shell of opposite phase. P(r)=r²(2−r)²e^{−r}. The sign convention below makes
+  // the dominant OUTER shell the element color; the inner core reads as its phase
+  // opposite across the node. (Density is sign-independent — only coloring changes.)
+  '2s': {
+    label: '2s', n: 2, l: 0,
+    radial: (r) => (r - 2) * Math.exp(-r / 2),
+    angular: () => 1,
+    angularMax: 1,
+    rPeak: 5.2,
+    rMax: 22,
   },
   // 2p (l=1): two lobes along an axis. ψ_2p ∝ r e^{-r/2} · (axis/r). P(r)=r⁴e^{-r} peaks at r=4.
   '2px': {
@@ -55,6 +72,27 @@ export const ORBITALS = {
     rPeak: 4,
     rMax: 18,
   },
+  // 3s (l=0): TWO radial nodes (r≈1.9 and 7.1a₀) → three concentric, alternating-
+  // phase shells. R₃₀ ∝ (27 − 18r + 2r²)e^{−r/3}.
+  '3s': {
+    label: '3s', n: 3, l: 0,
+    radial: (r) => (27 - 18 * r + 2 * r * r) * Math.exp(-r / 3),
+    angular: () => 1,
+    angularMax: 1,
+    rPeak: 13,
+    rMax: 36,
+  },
+  // 3p_z (l=1): a radial node at r=6a₀ AND the p angular node — concentric shells
+  // crossed by the two-lobe ±z structure. R₃₁ ∝ (6r − r²)e^{−r/3} (signed so the
+  // dominant outer shell is positive).
+  '3pz': {
+    label: '3p_z', n: 3, l: 1,
+    radial: (r) => r * (r - 6) * Math.exp(-r / 3),
+    angular: (x, y, z) => z,
+    angularMax: 1,
+    rPeak: 12,
+    rMax: 34,
+  },
   // 3d_z² (l=2): lobes along z + an equatorial torus. ∝ (3z²−1). P(r)=r⁶e^{-2r/3} peaks at r=9.
   '3dz2': {
     label: '3d_z²', n: 3, l: 2,
@@ -70,6 +108,32 @@ export const ORBITALS = {
     radial: (r) => r * r * Math.exp(-r / 3),
     angular: (x, y) => x * x - y * y,
     angularMax: 1,
+    rPeak: 9,
+    rMax: 28,
+  },
+  // The remaining three d-orbitals — four lobes between the axes. ∝ 2xy, 2xz, 2yz
+  // (max |xy| on the unit sphere is ½, so angularMax = 0.5).
+  '3dxy': {
+    label: '3d_{xy}', n: 3, l: 2,
+    radial: (r) => r * r * Math.exp(-r / 3),
+    angular: (x, y) => x * y,
+    angularMax: 0.5,
+    rPeak: 9,
+    rMax: 28,
+  },
+  '3dxz': {
+    label: '3d_{xz}', n: 3, l: 2,
+    radial: (r) => r * r * Math.exp(-r / 3),
+    angular: (x, y, z) => x * z,
+    angularMax: 0.5,
+    rPeak: 9,
+    rMax: 28,
+  },
+  '3dyz': {
+    label: '3d_{yz}', n: 3, l: 2,
+    radial: (r) => r * r * Math.exp(-r / 3),
+    angular: (x, y, z) => y * z,
+    angularMax: 0.5,
     rPeak: 9,
     rMax: 28,
   },
@@ -159,7 +223,12 @@ export function sampleOrbital(key, n, rng) {
     positions[i * 3] = rr * d[0];
     positions[i * 3 + 1] = rr * d[1];
     positions[i * 3 + 2] = rr * d[2];
-    signs[i] = d[3];
+    // Phase = sign(R_nl(r)) · sign(Y_lm): the RADIAL part also flips sign across a
+    // radial node, so inner/outer shells of a node-bearing orbital (2s/3s/3p) read
+    // as opposite phase. For node-free orbitals R ≥ 0, so this reduces to the
+    // angular sign (unchanged behavior for 1s/2p/3d).
+    const radialSign = orbital.radial(r) >= 0 ? 1 : -1;
+    signs[i] = d[3] * radialSign;
   }
   return { positions, signs, orbital };
 }

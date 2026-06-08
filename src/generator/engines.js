@@ -3,10 +3,12 @@
 //     theme-coherent content from the dharma/quantum vocabulary using a seeded
 //     PRNG; generates several candidates (the superposition) and reports an
 //     amplitude per candidate.
-//   • LLMEngine — optional. Same interface, but asks a real Claude model via a
-//     configurable endpoint. Never embeds an API key in the browser (use a
-//     proxy); in Node it reads ANTHROPIC_API_KEY. Degrades to a fallback engine
-//     (the simulator) on any error, so the run never hard-fails.
+//   • LLMEngine — optional. Same interface, but asks a real model via a
+//     configurable endpoint: Claude (Anthropic) or any OpenAI-compatible server
+//     (LM Studio, Ollama, OpenAI). Never embeds an API key in the browser (use a
+//     proxy, or a keyless local server); in Node it reads the provider's env key.
+//     Degrades to a fallback engine (the simulator) on any error, so the run
+//     never hard-fails.
 
 import { Engine } from './quantum-site-generator.js';
 import { ELEMENTS, CONCEPT_PAIRS, MANTRAS, FRAGMENTS, PALETTE, PHI } from './vocabulary.js';
@@ -319,6 +321,13 @@ export class LLMEngine extends Engine {
       const data = await res.json();
       const text = extractChatText(data);
       if (!text) throw new Error('LLM response had no text content');
+      // Warn if the reply was cut off at the token limit (silently truncated files
+      // are worse than a loud warning — raise maxTokens for long files).
+      const choice = Array.isArray(data.choices) ? data.choices[0] : null;
+      if ((data.stop_reason === 'max_tokens' || (choice && choice.finish_reason === 'length'))
+        && typeof console !== 'undefined') {
+        console.warn(`[qiwg] LLM reply truncated at max_tokens=${this.maxTokens} for ${file.path} — raise maxTokens for longer files.`);
+      }
       // Local models often fence the whole file despite the prompt — unwrap it.
       return { candidates: [stripOuterCodeFence(text)], amplitudes: [1], confidence: 0.92 };
     } catch (err) {

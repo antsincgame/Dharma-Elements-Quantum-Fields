@@ -52,17 +52,6 @@ export function createRng(seed = 'OM') {
     }
     return copy.slice(0, Math.max(0, Math.min(k, copy.length)));
   };
-  // Collapse a superposition: choose an index with probability ∝ amplitude².
-  rng.measure = (weights) => {
-    const probs = weights.map((w) => w * w);
-    const total = probs.reduce((a, b) => a + b, 0) || 1;
-    let r = next() * total;
-    for (let i = 0; i < probs.length; i++) {
-      r -= probs[i];
-      if (r <= 0) return i;
-    }
-    return probs.length - 1;
-  };
   // Fork an independent, reproducible sub-stream (used for per-candidate branches).
   rng.fork = (label = '') => createRng((seedFn() ^ xmur3(String(label))()) >>> 0);
   return rng;

@@ -18,7 +18,7 @@
 
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize, dirname } from 'node:path';
+import { extname, join, normalize, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeBackend, parseOpenQASM } from '../src/generator/index.js';
 
@@ -34,6 +34,9 @@ const LMSTUDIO_URL = process.env.LMSTUDIO_URL || 'http://localhost:1234/v1/chat/
 const LMSTUDIO_KEY = process.env.LMSTUDIO_KEY || null;
 const ANU_URL = 'https://api.quantumnumbers.anu.edu.au';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+// CORS: the proxy holds API keys, so '*' makes it an open credentialed relay for any
+// reachable origin. Fine for a localhost demo (default); set ALLOWED_ORIGIN to lock it down.
+const ALLOW_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -42,14 +45,15 @@ const MIME = {
 };
 
 function send(res, status, body, headers = {}) {
-  res.writeHead(status, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', ...headers });
+  res.writeHead(status, { 'Access-Control-Allow-Origin': ALLOW_ORIGIN, 'Access-Control-Allow-Headers': 'Content-Type', ...headers });
   res.end(body);
 }
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', (c) => { data += c; if (data.length > 4e6) reject(new Error('body too large')); });
+    // Cap the body and tear the socket down on overflow (don't keep buffering).
+    req.on('data', (c) => { data += c; if (data.length > 4e6) { req.destroy(); reject(new Error('body too large')); } });
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
@@ -106,12 +110,23 @@ async function handleGenerate(req, res) {
 
 // POST /api/llm — forward an OpenAI-compatible chat request to a local server
 // (LM Studio by default). Lets the browser reach LM Studio same-origin when its
-// CORS is off; LM Studio is keyless, so this usually just relays the body as-is.
+// CORS is off. The upstream URL is server-fixed (not client-controlled → no SSRF);
+// the body is validated and max_tokens clamped before forwarding.
 async function handleLLM(req, res) {
+  let body;
+  try {
+    body = JSON.parse((await readBody(req)) || '{}');
+  } catch {
+    return send(res, 400, JSON.stringify({ error: 'invalid JSON body' }), { 'Content-Type': 'application/json' });
+  }
+  if (!Array.isArray(body.messages)) {
+    return send(res, 400, JSON.stringify({ error: 'body must include a messages[] array' }), { 'Content-Type': 'application/json' });
+  }
+  if (body.max_tokens != null) body.max_tokens = Math.min(8192, Math.max(1, Number(body.max_tokens) || 1024));
   try {
     const headers = { 'content-type': 'application/json' };
     if (LMSTUDIO_KEY) headers['authorization'] = `Bearer ${LMSTUDIO_KEY}`;
-    const r = await fetch(LMSTUDIO_URL, { method: 'POST', headers, body: await readBody(req) });
+    const r = await fetch(LMSTUDIO_URL, { method: 'POST', headers, body: JSON.stringify(body) });
     const text = await r.text();
     send(res, r.status, text, { 'Content-Type': 'application/json' });
   } catch (err) {
@@ -123,7 +138,9 @@ async function serveStatic(req, res, url) {
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === '/') pathname = '/src/generator.html';
   const filePath = normalize(join(ROOT, pathname));
-  if (!filePath.startsWith(ROOT)) return send(res, 403, 'forbidden'); // path-traversal guard
+  // Path-traversal guard: require the resolved path to be ROOT itself or inside it
+  // (the trailing separator stops a sibling like ROOT+"-secrets" from matching).
+  if (filePath !== ROOT && !filePath.startsWith(ROOT + sep)) return send(res, 403, 'forbidden');
   try {
     const data = await readFile(filePath);
     send(res, 200, data, { 'Content-Type': MIME[extname(filePath)] || 'application/octet-stream' });
@@ -149,4 +166,7 @@ server.listen(PORT, () => {
   console.log(`   IBM QPU: ${IBM_TOKEN && IBM_CRN ? 'ready' : 'set IBM_QUANTUM_TOKEN + IBM_CRN to enable'}  → POST /api/quantum {backend:"ibm"}`);
   console.log(`   Claude:  ${ANTHROPIC_KEY ? 'ready' : 'set ANTHROPIC_API_KEY to enable'}  → /api/generate`);
   console.log(`   LM Studio: relaying to ${LMSTUDIO_URL}  → POST /api/llm  (browser can also call LM Studio directly)`);
+  if (ALLOW_ORIGIN === '*' && (ANU_KEY || IBM_TOKEN || ANTHROPIC_KEY || LMSTUDIO_KEY)) {
+    console.log('   ⚠️  CORS is open (*) while keys are set — ok for a localhost demo; set ALLOWED_ORIGIN to lock it down.');
+  }
 });

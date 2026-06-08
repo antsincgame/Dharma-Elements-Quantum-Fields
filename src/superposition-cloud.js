@@ -44,10 +44,11 @@ const FRAGMENT_SHADER = `
   varying vec3 vColor;
   varying float vGlow;
   void main() {
-    // soft round glowing point, computed procedurally (no texture)
+    // Soft round star-like point: a smooth Gaussian core (no hard smoothstep ring),
+    // computed procedurally (no texture). Additive blending hides the faint tail.
     float d = length(gl_PointCoord - vec2(0.5));
-    if (d > 0.5) discard;
-    float alpha = pow(smoothstep(0.5, 0.0, d), 1.6);
+    float alpha = exp(-d * d * 7.0);
+    if (alpha < 0.012) discard;
     gl_FragColor = vec4(vColor * vGlow, alpha);
   }
 `;
@@ -85,6 +86,7 @@ export class SuperpositionField {
     this.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(w, h);
+    if (THREE.sRGBEncoding) this.renderer.outputEncoding = THREE.sRGBEncoding; // correct color
     this.container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
@@ -93,6 +95,25 @@ export class SuperpositionField {
     this.group = new THREE.Group();
     this.scene.add(this.group);
     this.clock = new THREE.Clock();
+
+    // Optional HDR bloom via the postprocessing passes (loaded as classic scripts in
+    // generator.html). Entirely defensive: if any pass is missing or setup throws,
+    // composer stays null and we render directly — the cloud always works.
+    this.composer = null;
+    this.bloom = null;
+    try {
+      if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
+        const composer = new THREE.EffectComposer(this.renderer);
+        composer.addPass(new THREE.RenderPass(this.scene, this.camera));
+        const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(w, h), 0.85, 0.5, 0.18);
+        composer.addPass(bloom);
+        this.composer = composer;
+        this.bloom = bloom;
+      }
+    } catch (err) {
+      if (typeof console !== 'undefined') console.warn('[qiwg] bloom composer unavailable, rendering directly:', err.message);
+      this.composer = null;
+    }
   }
 
   // (Re)build one cloud per file. Clouds then follow their file's live state every
@@ -351,7 +372,8 @@ export class SuperpositionField {
     }
     this.group.rotation.y = t * 0.1;
     this.group.rotation.x = Math.sin(t * 0.06) * 0.12;
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer) this.composer.render();
+    else this.renderer.render(this.scene, this.camera);
   }
 
   _tickBloch(c) {
@@ -372,6 +394,8 @@ export class SuperpositionField {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    if (this.composer) this.composer.setSize(w, h);
+    if (this.bloom && this.bloom.setSize) this.bloom.setSize(w, h);
   }
 
   dispose() {

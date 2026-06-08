@@ -67,6 +67,12 @@ await check('extractChatText reads both protocol shapes', () => {
   assert.equal(extractChatText(null), null);
 });
 
+await check('extractChatText returns falsy for empty responses (engine then falls back)', () => {
+  assert.equal(extractChatText({ choices: [] }), null); // no first choice
+  assert.equal(extractChatText({ content: [] }), ''); // empty anthropic blocks → '' (falsy)
+  assert.equal(extractChatText({}), null);
+});
+
 await check('stripOuterCodeFence unwraps a whole-file fence but keeps inner blocks', () => {
   assert.equal(stripOuterCodeFence('```html\n<p>x</p>\n```'), '<p>x</p>');
   const md = '# Title\n\n```js\nfoo()\n```\n'; // inner fence, not the whole file
@@ -150,6 +156,22 @@ await check('a key is NEVER attached when a proxy endpoint is set', async () => 
   await engine.guess(FILE, ctx());
   assert.equal(cap.url, '/api/llm');
   assert.ok(!('authorization' in cap.headers), 'proxy injects the key server-side; client must not');
+});
+
+await check('LLMEngine(anthropic) direct call uses x-api-key + top-level system', async () => {
+  const cap = {};
+  const engine = new LLMEngine({
+    apiKey: 'sk-ant',
+    fetchImpl: recordingFetch({ content: [{ type: 'text', text: '<p>earth ↔ higgs</p>' }] }, cap),
+  });
+  assert.equal(engine.name, 'llm');
+  const out = await engine.guess(FILE, ctx());
+  assert.match(cap.url, /api\.anthropic\.com/);
+  assert.equal(cap.headers['x-api-key'], 'sk-ant');
+  assert.equal(cap.headers['anthropic-version'], '2023-06-01');
+  assert.equal(typeof cap.body.system, 'string'); // anthropic keeps system top-level
+  assert.deepEqual(cap.body.messages[0].role, 'user');
+  assert.equal(out.candidates[0], '<p>earth ↔ higgs</p>');
 });
 
 await check('LLMEngine(anthropic) is unavailable with no endpoint and no key', async () => {

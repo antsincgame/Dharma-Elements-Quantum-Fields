@@ -72,7 +72,7 @@ export async function chshSampled(backend, shots = 2048, angles = CHSH_ANGLES) {
     E[key] = correlationFromCounts(counts);
   }
   const S = E.ab + E.abp + E.apb - E.apbp;
-  return { S, E, shots, classicalBound: 2, tsirelson: 2 * Math.SQRT2, violates: S > 2 };
+  return { S, E, shots, classicalBound: 2, tsirelson: 2 * Math.SQRT2, violates: S > 2 + 1e-9 };
 }
 
 // A shared entangled pair (default |Φ⁺⟩): measuring it collapses BOTH qubits, with

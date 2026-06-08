@@ -360,7 +360,7 @@ function init() {
   // The orbital cloud is purely additive eye-candy; if Three.js fails to load it
   // disables itself gracefully and the generator keeps working offline.
   try {
-    field = new SuperpositionField($('qg-cloud'), { pointsPerCloud: 6000 });
+    field = new SuperpositionField($('qg-cloud'), { pointsPerCloud: 9000 });
   } catch (err) {
     if (typeof console !== 'undefined') console.warn('[qiwg] superposition cloud disabled:', err);
     field = null;

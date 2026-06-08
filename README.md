@@ -173,7 +173,7 @@ src/generator/        Framework-free ES-module core (runs in the browser and Nod
   engines.js                 QuantumSimulatorEngine (default) + LLMEngine (optional)
   llm-protocol.js            Anthropic + OpenAI-compatible (LM Studio/Ollama/OpenAI) shaping
   scorers.js                 HeuristicScorer + LLMScorer + CompositeScorer (hybrid)
-  orbitals.js                |ψ|² orbital sampling for the superposition cloud
+  orbitals.js                |ψ|² orbital sampling (1s/2s/2p/3s/3p/3d, radial+angular nodes)
   qsim.js                    state-vector quantum simulator + OpenQASM-3 export
   backends.js                QuantumBackend: local / ANU QRNG / IBM (+ Braket/Azure stubs)
   quantum-engine.js          QuantumMeasurementEngine — Born-rule candidate selection
@@ -191,7 +191,9 @@ test/selfcheck.js          Zero-dependency smoke test (core + orbital math)
 test/cloud-integration.js  Cloud integration test (mock-THREE contract)
 test/quantum.test.js       Quantum layer (simulator, backends, Born selection, neg-time)
 test/entanglement.test.js  Bell states, EntangledPair, and the CHSH Bell test
+test/orbitals.test.js      Orbital sampling — r² Jacobian, |Y_lm|² rejection, radial nodes
 test/llm.test.js           LLM providers (Anthropic + OpenAI/LM Studio), key-safety, fallback
+test/proxy.test.js         Proxy hardening — path-traversal guard, /api/llm validation
 ```
 
 - **Engine** is pluggable: the offline **Quantum Simulator** synthesizes theme-coherent content from the
@@ -208,16 +210,26 @@ test/llm.test.js           LLM providers (Anthropic + OpenAI/LM Studio), key-saf
   from `P(r) = r²·R_nl(r)²` — the **r² shell factor** is essential, or the cloud would wrongly pile up at
   the origin. The five files map to the five elements ↔ fields by the field's **spin → orbital momentum
   l**: Higgs (spin 0) → `1s`, the spin-1 vector/gauge fields → `2pₓ/2p_y/2p_z`, the spin-2 vacuum → `3d`.
-  Rendering uses additive-blended `THREE.Points` with `depthWrite:false` and a procedural glow shader; if
-  Three.js can't load, the cloud disables itself and the generator keeps working fully offline.
+  The library also includes the **radial-node orbitals `2s/3s/3p`** (concentric shells separated by nodal
+  spheres) and the full d-set — the phase color is `sign(R_nl)·sign(Y_lm)`, so both **radial and angular
+  nodes** flip the lobe color, exactly as in professional orbital visualizers.
+- **Rendering** uses additive-blended `THREE.Points` with `depthWrite:false` and a procedural **Gaussian**
+  glow shader, sRGB output, and an *optional* HDR **`UnrealBloomPass`** (loaded as classic scripts — if it
+  or Three.js can't load, the cloud renders directly / disables itself and the generator keeps working
+  fully offline).
 
 #### Offline preview (no browser)
 
 `node examples/render-clouds.js` rasterizes the **real orbital geometry** (the same `orbitals.js` sampling)
-with additive glow + bloom into PNGs under `docs/previews/` — a browser-free way to verify the graphics.
-The phase sign tints each lobe (warm = +, cool = −).
+into PNGs under `docs/previews/` at scientific-visualization quality — a browser-free way to verify the
+graphics. The pipeline is **supersampled** (clean anti-aliasing), **depth-cued** (far points dim), with a
+**diverging phase palette** (element hue = ψ>0, icy complement = ψ<0), threshold **bloom**, and **ACES**
+filmic tone mapping + sRGB.
 
-![Five element orbitals: 1s · 2pₓ · 2p_y · 2p_z · 3d_z²](docs/previews/cloud-contact.png)
+The contact sheet tours the orbital structure — note the **radial nodes**: the `2s` core-plus-shell and the
+`3s` concentric shells (dark nodal gaps), the `2p_z/3p_z` lobes, and the `3d_z²` polar lobes + icy torus.
+
+![Orbital structure tour: 1s · 2s · 2p_z · 3s · 3p_z · 3d_z² (radial nodes visible)](docs/previews/cloud-contact.png)
 ![Golden-ratio mandala of the five element clouds](docs/previews/cloud-mandala.png)
 
 ### Real quantum measurement + "negative time"

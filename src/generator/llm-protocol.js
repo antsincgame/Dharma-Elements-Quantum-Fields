@@ -36,7 +36,9 @@ export function buildChatBody(protocol, { model, maxTokens, system, user, temper
     if (temperature != null) body.temperature = temperature;
     return body;
   }
-  // anthropic — system is a top-level field, not a message
+  // anthropic — system is a top-level field, not a message. `temperature` is
+  // deliberately omitted: current Claude (Opus 4.x) rejects sampling params, so the
+  // Anthropic branch never forwards it even when set (the OpenAI branch keeps it).
   return { model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] };
 }
 
