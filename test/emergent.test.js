@@ -4,8 +4,11 @@
 import assert from 'node:assert/strict';
 import {
   createField, runAgent, journalStats, applyAction, AGENT_TOOLS,
-  materializeField, BLOCKS, createRng,
+  materializeField, makeLLMDecider, BLOCKS, createRng,
 } from '../src/generator/index.js';
+
+// A fetch stub returning a canned chat reply (OpenAI shape).
+const replyFetch = (content) => async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content } }] }) });
 
 let passed = 0;
 async function check(name, fn) {
@@ -80,6 +83,39 @@ await check('different fields materialize different sites (never templated)', as
   const sa = materializeField(fa, { rng: createRng('x:m'), title: 'S' })['index.html'];
   const sb = materializeField(fb, { rng: createRng('y:m'), title: 'S' })['index.html'];
   assert.notEqual(sa, sb);
+});
+
+// ---- LLM decider (the agent's real will) ----------------------------------
+
+await check('makeLLMDecider returns null when nothing is wired (→ offline)', () => {
+  assert.equal(makeLLMDecider({ provider: 'anthropic', fetchImpl: async () => ({}) }), null);
+});
+
+await check('makeLLMDecider(lmstudio) parses {"tool":"seed"} from the reply', async () => {
+  const decide = makeLLMDecider({ provider: 'lmstudio', fetchImpl: replyFetch('{"tool":"seed"}') });
+  assert.ok(typeof decide === 'function');
+  const choice = await decide({ voidFraction: 0.5, regions: 3, entropy: 1.2, types: {} }, AGENT_TOOLS);
+  assert.deepEqual(choice, { name: 'seed' });
+});
+
+await check('makeLLMDecider accepts a bare tool word and rejects junk', async () => {
+  const d1 = makeLLMDecider({ provider: 'lmstudio', fetchImpl: replyFetch('I will rest now.') });
+  assert.deepEqual(await d1({ voidFraction: 0.3, regions: 1, entropy: 1, types: {} }, AGENT_TOOLS), { name: 'rest' });
+  const d2 = makeLLMDecider({ provider: 'lmstudio', fetchImpl: replyFetch('blah blah no tool here') });
+  assert.equal(await d2({ voidFraction: 0.3, regions: 1, entropy: 1, types: {} }, AGENT_TOOLS), null);
+});
+
+await check('makeLLMDecider returns null on a failed/throwing fetch (→ offline)', async () => {
+  const d1 = makeLLMDecider({ provider: 'lmstudio', fetchImpl: async () => ({ ok: false, status: 502 }) });
+  assert.equal(await d1({ voidFraction: 0.3, regions: 1, entropy: 1, types: {} }, AGENT_TOOLS), null);
+  const d2 = makeLLMDecider({ provider: 'lmstudio', fetchImpl: async () => { throw new Error('down'); } });
+  assert.equal(await d2({ voidFraction: 0.3, regions: 1, entropy: 1, types: {} }, AGENT_TOOLS), null);
+});
+
+await check('runAgent uses an LLM decider when supplied (always rests here)', async () => {
+  const decide = makeLLMDecider({ provider: 'lmstudio', fetchImpl: replyFetch('{"tool":"rest"}') });
+  const { journal } = await runAgent({ field: mkField('llmdec'), rng: createRng('llmdec:a'), ticks: 12, decide });
+  assert.equal(journalStats(journal).counts.rest, 12);
 });
 
 console.log(`\nAll ${passed} emergent tests passed ✓`);

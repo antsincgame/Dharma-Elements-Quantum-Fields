@@ -19,3 +19,4 @@ export * from './entanglement.js';
 export * from './web-field.js';
 export * from './agent.js';
 export * from './web-materialize.js';
+export * from './llm-decider.js';

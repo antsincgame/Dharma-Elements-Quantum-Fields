@@ -103,6 +103,25 @@ export function applyAction(field, action, rng) {
   return stepOpts;
 }
 
+// One agent step: choose a tool (LLM `decide` if given, else offline quantum draw),
+// apply it, and advance the field one tick. Returns { field, action }. Shared by the
+// batch loop and the live browser loop. `decide` may return null/throw → offline.
+export async function agentTick(field, rng, { decide = null, restBias } = {}) {
+  let action;
+  if (decide) {
+    try {
+      const chosen = await decide(fieldSummary(field), AGENT_TOOLS);
+      action = chosen && chosen.name ? buildAction(chosen.name, field, rng) : chooseActionOffline(field, rng, { restBias });
+      if (chosen && chosen.args) action.args = { ...action.args, ...chosen.args };
+    } catch { action = chooseActionOffline(field, rng, { restBias }); }
+  } else {
+    action = chooseActionOffline(field, rng, { restBias });
+  }
+  const stepOpts = applyAction(field, action, rng);
+  const next = stepField(field, rng, stepOpts);
+  return { field: next, action };
+}
+
 // Run the agent over the field for `ticks` steps. `decide` (optional, async) lets an
 // LLM choose a tool from AGENT_TOOLS given fieldSummary(); without it the offline
 // quantum-seeded chooser is used. Returns the evolved field and a journal of the
@@ -111,18 +130,8 @@ export async function runAgent({ field, rng, ticks = 30, decide = null, restBias
   let f = field;
   const journal = [];
   for (let t = 0; t < ticks; t++) {
-    let action;
-    if (decide) {
-      try {
-        const chosen = await decide(fieldSummary(f), AGENT_TOOLS);
-        action = chosen && chosen.name ? buildAction(chosen.name, f, rng) : chooseActionOffline(f, rng, { restBias });
-        if (chosen && chosen.args) action.args = { ...action.args, ...chosen.args };
-      } catch { action = chooseActionOffline(f, rng, { restBias }); }
-    } else {
-      action = chooseActionOffline(f, rng, { restBias });
-    }
-    const stepOpts = applyAction(f, action, rng);
-    f = stepField(f, rng, stepOpts);
+    const { field: nf, action } = await agentTick(f, rng, { decide, restBias });
+    f = nf;
     journal.push({ tick: f.tick, action: action.name, args: action.args, note: action.note });
   }
   return { field: f, journal };

@@ -29,6 +29,11 @@ import {
   createRng,
   SITE_SPECS,
   byteLength,
+  createField,
+  runAgent,
+  journalStats,
+  materializeField,
+  makeLLMDecider,
 } from '../src/generator/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -77,6 +82,8 @@ Options:
   --ibm-backend <id>   IBM device name (default: ibm_brisbane)
   --verify-quantum     Run a Bell circuit on --backend and print the counts (connectivity check)
   --bell-test          Run a CHSH Bell test on --backend (classical ≤ 2, quantum → 2√2)
+  --emergent           Grow a site from a quantum field tended by a wu-wei agent (not a template)
+  --ticks <n>          Emergent: number of agent/field ticks (default: 32)
   --quiet              Suppress per-step logging
   --help               Show this help
 `);
@@ -148,6 +155,35 @@ async function main() {
     console.log(`  E(a,b)=${r.E.ab.toFixed(3)}  E(a,b')=${r.E.abp.toFixed(3)}  E(a',b)=${r.E.apb.toFixed(3)}  E(a',b')=${r.E.apbp.toFixed(3)}`);
     console.log(`  S = ${r.S.toFixed(4)}   (classical ≤ 2 · Tsirelson 2√2 ≈ ${(2 * Math.SQRT2).toFixed(4)} · ideal ${chshExact().S.toFixed(4)})`);
     console.log(`  ${r.violates ? '✓ Bell inequality VIOLATED — interbeing is real (प्रतीत्यसमुत्पाद ↔ entanglement)' : '✗ no violation (classical/degraded path)'}`);
+  }
+
+  // 🌱 Emergent mode: a website that GROWS from a quantum cellular field tended by a
+  // wu-wei agent (koan: "do nothing"). With an LLM provider the agent's will is a real
+  // model; otherwise its choices are a quantum-seeded draw. Writes a real, unique site.
+  if (args.emergent) {
+    const ticks = Number(args.ticks != null ? args.ticks : 32);
+    const rng = createRng('web:' + seed);
+    const field = createField({ rows: 22, cols: 40, rng, density: 0.06 });
+    let decide = null;
+    if (LLM_ENGINES.includes(args.engine) || args.provider) {
+      decide = makeLLMDecider({ provider, endpoint, apiKey, model });
+      console.log(`🪷 Emergent agent · will = ${decide ? `${provider} (LLM, falls back to quantum per-tick)` : 'quantum (no LLM wired)'}`);
+    } else {
+      console.log('🪷 Emergent agent · will = quantum (offline)');
+    }
+    const { field: grown, journal } = await runAgent({ field, rng, ticks, decide });
+    const js = journalStats(journal);
+    for (const e of journal.filter((x) => x.action !== 'rest').slice(0, 10)) {
+      console.log(`  tick ${String(e.tick).padStart(2)} · ${e.action.padEnd(11)} ${e.note}`);
+    }
+    console.log(`  …abided ${js.abided}/${js.total} ticks · acted ${js.acted} · tools ${JSON.stringify(js.counts)}`);
+    const site = materializeField(grown, { rng: createRng('mat:' + seed), title: 'शून्य निर्माण — seed ' + seed });
+    mkdirSync(outDir, { recursive: true });
+    for (const name of Object.keys(site)) writeFileSync(join(outDir, name), site[name]);
+    const secN = (site['index.html'].match(/class="em /g) || []).length;
+    console.log(`\n🏛️  Materialized a real, emergent website → ${outDir}`);
+    console.log(`  ${secN} emergent sections · ${byteLength(site['index.html'])} bytes HTML + ${byteLength(site['style.css'])} bytes CSS`);
+    return;
   }
 
   const simulator = new QuantumSimulatorEngine();

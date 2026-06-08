@@ -184,10 +184,12 @@ src/generator/        Framework-free ES-module core (runs in the browser and Nod
   web-field.js               emergent web-field — quantum cellular automaton over web blocks
   agent.js                   wu-wei agent — toolset + "do nothing" loop (LLM-ready)
   web-materialize.js         collapse an evolved field into a real, unique HTML+CSS site
+  llm-decider.js             let a real LLM be the agent's will (tool choice), offline-safe
   vocabulary.js / prng.js / events.js / index.js
 src/generator.html    Interactive demo (orbital/Bloch cloud, meters, gauge, preview, download)
 src/generator-ui.js   DOM glue (imports the core; reuses the existing theme)
 src/superposition-cloud.js  Three.js layer — orbital cloud + Bloch-sphere mode
+src/emergent-ui.js    Live emergent view — field canvas + agent journal + site preview
 server/quantum-proxy.js     Example server — keeps API keys off the client (QRNG/IBM/LLM)
 bin/generate.js       Node CLI — writes a real static site to disk
 test/selfcheck.js          Zero-dependency smoke test (core + orbital math)
@@ -256,9 +258,25 @@ randomness and local interaction — two layers:
   the section count, order, content and palette all emerge from the field, so a different seed (or agent run)
   yields a genuinely different website, never a template.
 
+- **Real model as the agent's will:** `llm-decider.js` lets the agent's tool choices come from a real LLM
+  (LM Studio / Claude / any OpenAI-compatible server) under the "do nothing" koan — same provider presets as
+  the rest of the project, key never in the browser, and **`null` on any failure → the offline quantum draw**
+  so the loop never stalls.
+- **Live in the browser:** `generator.html` has an **🌱 Emergent** section — the field evolves on a canvas,
+  the agent's *intentions* stream in a journal, and the materializing site updates in a live preview. Pick the
+  agent's will: **Quantum (offline)**, **LM Studio (local)**, or **Claude (proxy)**. Download the grown site
+  as a `.zip`.
+
 ```bash
-node examples/emergent-web.js OM 30   # watch the field emerge (ASCII), the agent's journal,
-                                      # then a real site → generated/emergent/index.html
+# Headless: watch the field emerge (ASCII) + the agent's journal, then a real site
+node examples/emergent-web.js OM 30                 # → generated/emergent/index.html
+
+# CLI: grow + write a real site (quantum will, or an LLM will via --engine)
+node bin/generate.js --emergent --out ./generated/emergent --seed 108
+node bin/generate.js --emergent --engine lmstudio   # the agent's will = a local model (falls back to quantum)
+
+# Browser: open http://localhost:8000/src/generator.html → the 🌱 Emergent section
+python3 -m http.server 8000
 ```
 
 ### Real quantum measurement + "negative time"
