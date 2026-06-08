@@ -474,4 +474,386 @@ button:active::before {
     .control-grid {
         grid-template-columns: 1fr;
     }
-} 
+}
+
+/* ===================================================================== */
+/* Quantum-Informatics Website Generator (generator.html) — .qg- prefix  */
+/* ===================================================================== */
+
+body.qg-body {
+    overflow: auto;
+}
+
+.qg-main {
+    align-items: start;
+}
+
+.qg-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.qg-control {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85em;
+}
+
+.qg-control-wide {
+    grid-column: 1 / -1;
+}
+
+.qg-control label {
+    color: #374151;
+    font-weight: 600;
+}
+
+.qg-control select,
+.qg-control input[type="text"] {
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    color: #1e293b;
+}
+
+.qg-buttons {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.qg-btn {
+    padding: 10px 16px;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #1e40af;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.qg-btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #1e40af);
+    color: #fff;
+    border: none;
+}
+
+.qg-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.qg-files {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.qg-file {
+    border: 1px solid #e0f2fe;
+    border-left: 4px solid var(--kind, #3b82f6);
+    border-radius: 8px;
+    padding: 12px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    transition: box-shadow 0.3s ease;
+}
+
+.qg-file.is-collapsed {
+    box-shadow: 0 2px 12px rgba(59, 130, 246, 0.18);
+}
+
+.qg-file-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.qg-file-path {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #1e40af;
+}
+
+.qg-file-kind {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    background: var(--kind, #3b82f6);
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.qg-file-state {
+    margin-left: auto;
+    font-size: 0.8em;
+    color: #475569;
+}
+
+.qg-meter {
+    position: relative;
+    height: 16px;
+    background: #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.qg-meter-zero {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #94a3b8;
+    transform: translateX(-1px);
+    z-index: 2;
+}
+
+.qg-meter-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 4px;
+    transition: left 0.4s ease, width 0.4s ease, background 0.4s ease;
+}
+
+.qg-meter-fill.neg {
+    background: linear-gradient(90deg, #dc2626, #f59e0b);
+}
+
+.qg-meter-fill.pos {
+    background: linear-gradient(90deg, #3b82f6, #16a34a);
+}
+
+.qg-file-foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 0.78em;
+    color: #475569;
+    font-family: 'Courier New', monospace;
+}
+
+.qg-gauge-wrap {
+    margin-top: 22px;
+    border-top: 1px solid #bfdbfe;
+    padding-top: 16px;
+}
+
+.qg-gauge-wrap h3 {
+    color: #1e40af;
+    font-weight: 400;
+    margin-bottom: 10px;
+}
+
+.qg-score {
+    font-weight: 700;
+    color: #16a34a;
+}
+
+.qg-gauge {
+    position: relative;
+    height: 22px;
+    background: #e2e8f0;
+    border-radius: 11px;
+    overflow: hidden;
+}
+
+.qg-gauge-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #f59e0b, #3b82f6, #16a34a);
+    transition: width 0.4s ease;
+}
+
+.qg-gauge-mark {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 3px;
+    background: #7c3aed;
+    z-index: 3;
+}
+
+.qg-metrics {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.qg-metric {
+    display: grid;
+    grid-template-columns: 120px 1fr 36px;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82em;
+}
+
+.qg-metric-name {
+    color: #374151;
+}
+
+.qg-metric-bar {
+    background: #e2e8f0;
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+}
+
+.qg-metric-bar span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #1e40af);
+    transition: width 0.3s ease;
+}
+
+.qg-metric-val {
+    text-align: right;
+    color: #1e40af;
+    font-weight: 600;
+}
+
+.qg-panel {
+    position: sticky;
+    top: 20px;
+}
+
+.qg-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.qg-tab {
+    padding: 5px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    font-size: 0.78em;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.qg-tab.active {
+    background: #1e40af;
+    color: #fff;
+    border-color: #1e40af;
+}
+
+.qg-preview-wrap {
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    height: 520px;
+}
+
+.qg-preview {
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.qg-preview-text {
+    margin: 0;
+    padding: 12px;
+    height: 100%;
+    overflow: auto;
+    font-size: 0.78em;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #334155;
+}
+
+.qg-status {
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: #475569;
+}
+
+.qg-back {
+    display: block;
+    text-align: center;
+    margin: 20px auto 40px;
+    color: #1e40af;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.qg-back:hover {
+    text-decoration: underline;
+}
+
+/* 🌀 Superposition cloud — the Three.js orbital-cloud banner */
+.qg-cloud {
+    position: relative;
+    width: min(1100px, 94%);
+    height: 340px;
+    margin: 18px auto 0;
+    border-radius: 16px;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse at 50% 38%, #0b1430 0%, #060a1c 55%, #04060f 100%);
+    border: 1px solid rgba(124, 58, 237, 0.35);
+    box-shadow: 0 10px 40px rgba(30, 64, 175, 0.25), inset 0 0 80px rgba(59, 130, 246, 0.08);
+}
+
+.qg-cloud canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.qg-cloud-caption {
+    position: absolute;
+    left: 16px;
+    bottom: 12px;
+    z-index: 2;
+    font-size: 0.82em;
+    color: #bcd3ff;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+/* Shown only when Three.js failed to load (cloud disabled). */
+.qg-cloud-off-note {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 24px;
+    color: #bcd3ff;
+    font-size: 0.9em;
+}
+
+.qg-cloud.qg-cloud-off {
+    height: auto;
+    padding: 18px;
+}
+
+.qg-cloud.qg-cloud-off .qg-cloud-caption {
+    display: none;
+}
+
+.qg-cloud.qg-cloud-off .qg-cloud-off-note {
+    display: flex;
+    position: static;
+}
+
+@media (max-width: 640px) {
+    .qg-cloud {
+        height: 240px;
+    }
+}

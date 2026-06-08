@@ -151,6 +151,70 @@ This is a sacred offering for the benefit of all beings. Contributions welcome i
 3. **Code with loving-kindness** and clear documentation
 4. **Test thoroughly** for cross-browser enlightenment
 
+## ⚛️ **Quantum-Informatics Website Generator** (शून्य निर्माता)
+
+An experimental generator where a site is described as a set of **null files of negative size** —
+placeholders that store no content. *Negative size* models an **entropy debt**: the information the
+generator still owes. Each file is also a **superposition** of candidate contents that an AI engine
+*measures*, paying down the debt geometrically until the file collapses to one value — repeating until
+the assembled site reaches a target **quality score**.
+
+This is grounded in two real ideas:
+- Quantum conditional entropy `S(A|B) = S(AB) − S(B)` **can be negative** (Horodecki–Oppenheim–Winter,
+  *"Quantum information can be negative"*) — a file of negative size is information you are *owed*.
+- The best predictor is the best compressor (Solomonoff / Kolmogorov), so an AI *guessing* a file is
+  just paying down its conditional description length.
+
+### Architecture (zero-dependency, browser + Node)
+
+```
+src/generator/        Framework-free ES-module core (runs in the browser and Node)
+  quantum-site-generator.js  NullFile model + negative-size math + Generator loop
+  engines.js                 QuantumSimulatorEngine (default) + LLMEngine (optional)
+  scorers.js                 HeuristicScorer + LLMScorer + CompositeScorer (hybrid)
+  orbitals.js                |ψ|² orbital sampling for the superposition cloud
+  vocabulary.js / prng.js / events.js / index.js
+src/generator.html    Interactive demo (orbital cloud, size meters, gauge, preview)
+src/generator-ui.js   DOM glue (imports the core; reuses the existing theme)
+src/superposition-cloud.js  Three.js layer — the orbital "superposition cloud"
+bin/generate.js       Node CLI — writes a real static site to disk
+test/selfcheck.js          Zero-dependency smoke test (core + orbital math)
+test/cloud-integration.js  Cloud integration test (mock-THREE contract)
+```
+
+- **Engine** is pluggable: the offline **Quantum Simulator** synthesizes theme-coherent content from the
+  five-element/field vocabulary with a seeded PRNG (deterministic, reproducible from one seed); the
+  optional **LLM engine** calls a real Claude model via a configurable endpoint and *degrades to the
+  simulator* on any failure. In the browser the key must live behind a proxy — never in the client.
+- **Scoring** is hybrid: deterministic, Lighthouse-inspired heuristics (completeness, richness,
+  diversity, coherence, consistency, golden-ratio aesthetics) always run; an LLM judge can be blended in.
+- **Superposition cloud** (Three.js): each null file is drawn as a point cloud sampled from a
+  hydrogen-like orbital's probability density `|ψ_nlm|²` and collapses to a focused luminous cluster as
+  the file is measured (driven by its live `determinacy = 1 − debt/missingInfo`). The radius is sampled
+  from `P(r) = r²·R_nl(r)²` — the **r² shell factor** is essential, or the cloud would wrongly pile up at
+  the origin. The five files map to the five elements ↔ fields by the field's **spin → orbital momentum
+  l**: Higgs (spin 0) → `1s`, the spin-1 vector/gauge fields → `2pₓ/2p_y/2p_z`, the spin-2 vacuum → `3d`.
+  Rendering uses additive-blended `THREE.Points` with `depthWrite:false` and a procedural glow shader; if
+  Three.js can't load, the cloud disables itself and the generator keeps working fully offline.
+
+### Try it
+
+```bash
+# Interactive demo
+python3 -m http.server 8000
+# → open http://localhost:8000/src/generator.html and press “Begin Measurement”
+
+# Node CLI — guess a real site to disk, deterministically
+node bin/generate.js --preset dharma-landing --out ./generated --threshold 85 --seed 108
+
+# Self-check (core + orbital math, then the cloud integration contract)
+node test/selfcheck.js
+node test/cloud-integration.js
+```
+
+With a real model: `ANTHROPIC_API_KEY=... node bin/generate.js --engine llm` (falls back to the simulator
+if unset). Same `--seed` ⇒ byte-identical output.
+
 ## 📜 **License**
 
 Released under the **Dharma License** - may all beings benefit freely from this wisdom.

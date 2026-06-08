@@ -1,0 +1,20 @@
+{
+  "name": "quantum-informatics-website-generator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Quantum-informatics website generator: null files of negative size collapsed into a site by an AI engine until a target quality score is reached.",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "quantum-generate": "bin/generate.js"
+  },
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "generate": "node bin/generate.js",
+    "selfcheck": "node test/selfcheck.js",
+    "test": "node test/selfcheck.js && node test/cloud-integration.js"
+  },
+  "license": "MIT"
+}
