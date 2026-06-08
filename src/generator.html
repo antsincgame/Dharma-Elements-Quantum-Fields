@@ -12,6 +12,11 @@
     <p class="subtitle">शून्य निर्माता — null files of negative size, guessed by AI until the site blooms</p>
   </div>
 
+  <div id="qg-cloud" class="qg-cloud">
+    <div class="qg-cloud-caption">🌀 Superposition cloud — each null file as an orbital |ψ|², collapsing on measurement</div>
+    <div class="qg-cloud-off-note">Three.js could not load — the generator below still works fully offline.</div>
+  </div>
+
   <div class="main-container qg-main">
     <section class="visualization-section">
       <h2>Null Files · Superposition → Collapse</h2>
@@ -69,6 +74,9 @@
 
   <a class="qg-back" href="index.html">← Back to the Dharma · Quantum Fields visualization</a>
 
+  <!-- Three.js r128 (same CDN as the main visualization). Classic script: runs
+       before the deferred ES module below, so `THREE` is a ready global there. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script type="module" src="generator-ui.js"></script>
 </body>
 </html>

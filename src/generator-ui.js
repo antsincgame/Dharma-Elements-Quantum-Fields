@@ -16,6 +16,7 @@ import {
   byteLength,
   assembleSite,
 } from './generator/index.js';
+import { SuperpositionField } from './superposition-cloud.js';
 
 const $ = (id) => document.getElementById(id);
 const METRIC_LABELS = {
@@ -33,6 +34,7 @@ let generator = null;
 let running = false;
 let cards = {}; // path -> { root, meter, fill, sizeLabel, state, det }
 let currentTab = null;
+let field = null; // SuperpositionField — the Three.js orbital cloud (browser-only)
 
 function presetId() {
   return $('qg-preset').value;
@@ -80,6 +82,9 @@ function buildGenerator() {
   renderTabs();
   updateGauge(0, {});
   renderPreview();
+  // (Re)seed the superposition cloud; clouds then follow each file's live
+  // determinacy every frame and collapse as the run progresses.
+  if (field) field.setFiles(generator.files, generator.seed);
   $('qg-threshold-show').textContent = String(threshold());
 }
 
@@ -236,6 +241,14 @@ function reset() {
 }
 
 function init() {
+  // The orbital cloud is purely additive eye-candy; if Three.js fails to load it
+  // disables itself gracefully and the generator keeps working offline.
+  try {
+    field = new SuperpositionField($('qg-cloud'), { pointsPerCloud: 6000 });
+  } catch (err) {
+    if (typeof console !== 'undefined') console.warn('[qiwg] superposition cloud disabled:', err);
+    field = null;
+  }
   const presetSel = $('qg-preset');
   for (const id of Object.keys(SITE_SPECS)) {
     const opt = document.createElement('option');

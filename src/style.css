@@ -792,3 +792,68 @@ body.qg-body {
 .qg-back:hover {
     text-decoration: underline;
 }
+
+/* 🌀 Superposition cloud — the Three.js orbital-cloud banner */
+.qg-cloud {
+    position: relative;
+    width: min(1100px, 94%);
+    height: 340px;
+    margin: 18px auto 0;
+    border-radius: 16px;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse at 50% 38%, #0b1430 0%, #060a1c 55%, #04060f 100%);
+    border: 1px solid rgba(124, 58, 237, 0.35);
+    box-shadow: 0 10px 40px rgba(30, 64, 175, 0.25), inset 0 0 80px rgba(59, 130, 246, 0.08);
+}
+
+.qg-cloud canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.qg-cloud-caption {
+    position: absolute;
+    left: 16px;
+    bottom: 12px;
+    z-index: 2;
+    font-size: 0.82em;
+    color: #bcd3ff;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+/* Shown only when Three.js failed to load (cloud disabled). */
+.qg-cloud-off-note {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 24px;
+    color: #bcd3ff;
+    font-size: 0.9em;
+}
+
+.qg-cloud.qg-cloud-off {
+    height: auto;
+    padding: 18px;
+}
+
+.qg-cloud.qg-cloud-off .qg-cloud-caption {
+    display: none;
+}
+
+.qg-cloud.qg-cloud-off .qg-cloud-off-note {
+    display: flex;
+    position: static;
+}
+
+@media (max-width: 640px) {
+    .qg-cloud {
+        height: 240px;
+    }
+}

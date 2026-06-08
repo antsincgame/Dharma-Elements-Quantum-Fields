@@ -7,3 +7,4 @@ export * from './vocabulary.js';
 export * from './quantum-site-generator.js';
 export * from './engines.js';
 export * from './scorers.js';
+export * from './orbitals.js';

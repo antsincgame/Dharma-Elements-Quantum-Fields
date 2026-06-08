@@ -11,6 +11,8 @@ import {
   byteLength,
   createRng,
   SITE_SPECS,
+  sampleOrbital,
+  ELEMENT_ORBITAL,
 } from '../src/generator/index.js';
 
 const spec = SITE_SPECS['dharma-landing'];
@@ -105,6 +107,49 @@ async function main() {
       assert.ok((f.content || '').length > 0, `${f.path} should have content from fallback`);
     }
     assert.ok(r.score > 0);
+  });
+
+  // 7. Orbital sampling is deterministic for a given seed (byte-identical cloud).
+  await check('orbital cloud sampling is deterministic for a seed', async () => {
+    const a = sampleOrbital('2pz', 2000, createRng('cloud:108'));
+    const b = sampleOrbital('2pz', 2000, createRng('cloud:108'));
+    assert.deepEqual(Array.from(a.positions), Array.from(b.positions), 'same seed → identical points');
+    const c = sampleOrbital('2pz', 2000, createRng('cloud:109'));
+    assert.notDeepEqual(Array.from(a.positions), Array.from(c.positions), 'different seed → different points');
+  });
+
+  // 8. The r² shell factor is respected: a 1s cloud's mean radius is finite and
+  //    near the analytic value (⟨r⟩ = 1.5 a₀), NOT collapsed at the origin.
+  await check('1s radial sampling honors the r² Jacobian (mean radius ≈ 1.5 a₀)', async () => {
+    const n = 20000;
+    const { positions } = sampleOrbital('1s', n, createRng('r2-test'));
+    let sum = 0;
+    let atOrigin = 0;
+    for (let i = 0; i < n; i++) {
+      const r = Math.hypot(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]); // rPeak(1s)=1 → units of a₀
+      sum += r;
+      if (r < 0.05) atOrigin++;
+    }
+    const mean = sum / n;
+    assert.ok(mean > 1.2 && mean < 1.8, `mean radius ${mean.toFixed(3)} should be ≈1.5 a₀ (r² factor)`);
+    assert.ok(atOrigin / n < 0.01, 'points must not pile up at the nucleus');
+  });
+
+  // 9. Angular structure is correct: a 2p_z cloud is stretched along z (lobes),
+  //    while 1s is isotropic. Every element maps to a known orbital.
+  await check('p-orbital is axial and every element maps to an orbital', async () => {
+    const n = 8000;
+    const pz = sampleOrbital('2pz', n, createRng('pz'));
+    let sx = 0;
+    let sz = 0;
+    for (let i = 0; i < n; i++) {
+      sx += Math.abs(pz.positions[i * 3]);
+      sz += Math.abs(pz.positions[i * 3 + 2]);
+    }
+    assert.ok(sz > sx * 1.5, `2p_z should extend along z: |z|=${(sz / n).toFixed(2)} vs |x|=${(sx / n).toFixed(2)}`);
+    for (const key of ['earth', 'water', 'fire', 'air', 'space']) {
+      assert.ok(ELEMENT_ORBITAL[key], `element ${key} must map to an orbital`);
+    }
   });
 
   console.log(`\nAll ${passed} checks passed ✓`);
