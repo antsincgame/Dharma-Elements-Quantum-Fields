@@ -16,6 +16,7 @@ import {
   makeBackend,
   ProxyBackend,
   bellCircuit,
+  chshSampled,
   createRng,
   makeZip,
   SITE_SPECS,
@@ -91,6 +92,23 @@ async function verifyQuantum() {
   try {
     const { counts, backend } = await buildBackend().run(bellCircuit(), 1024);
     out.textContent = `${backend} → ${JSON.stringify(counts)}`;
+  } catch (err) {
+    out.textContent = '✗ ' + err.message;
+  }
+}
+
+// Run a CHSH Bell test on the selected backend and show S vs the bounds.
+async function runBellTest() {
+  const out = $('qg-bell-S');
+  out.textContent = '⏳ measuring…';
+  out.className = 'qg-bell-S';
+  try {
+    const r = await chshSampled(buildBackend(), 4096);
+    out.textContent = `S = ${r.S.toFixed(3)}${r.violates ? '  ✓ violates 2' : ''}`;
+    out.className = 'qg-bell-S' + (r.violates ? ' qg-bell-violate' : '');
+    const marker = $('qg-bell-marker');
+    marker.style.left = `${Math.max(0, Math.min(100, (r.S / 3) * 100))}%`; // bar spans S ∈ [0,3]
+    marker.title = `E(a,b)=${r.E.ab.toFixed(2)} · E(a,b')=${r.E.abp.toFixed(2)} · E(a',b)=${r.E.apb.toFixed(2)} · E(a',b')=${r.E.apbp.toFixed(2)}`;
   } catch (err) {
     out.textContent = '✗ ' + err.message;
   }
@@ -358,6 +376,7 @@ function init() {
     $('qg-quantum-wrap').style.display = e.target.value === 'quantum' ? 'flex' : 'none';
   });
   $('qg-verify').addEventListener('click', verifyQuantum);
+  $('qg-bell-run').addEventListener('click', runBellTest);
   $('qg-download').addEventListener('click', downloadSite);
   $('qg-cloud-mode').addEventListener('click', toggleCloudMode);
   $('qg-preset').addEventListener('change', () => reset());

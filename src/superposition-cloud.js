@@ -63,6 +63,7 @@ export class SuperpositionField {
     this.pointsPerCloud = opts.pointsPerCloud || 6000;
     this.mode = opts.mode || 'orbital'; // 'orbital' | 'bloch'
     this.clouds = [];
+    this._threads = []; // entanglement links between paired files
     this._lastFiles = null;
     this._lastSeed = null;
     this._raf = 0;
@@ -122,6 +123,25 @@ export class SuperpositionField {
       cloud.node.position.set(Math.cos(angle) * ring, Math.sin(angle) * ring * 0.6, 0);
       this.group.add(cloud.node);
       this.clouds.push(cloud);
+    }
+    this._buildThreads();
+  }
+
+  // Entanglement threads — interbeing (प्रतीत्यसमुत्पाद) drawn between paired files.
+  // Consecutive clouds are linked; the thread brightens as the pair co-collapses.
+  _buildThreads() {
+    for (let i = 0; i + 1 < this.clouds.length; i += 2) {
+      const a = this.clouds[i];
+      const b = this.clouds[i + 1];
+      const pa = a.node.position;
+      const pb = b.node.position;
+      const arr = new Float32Array([pa.x, pa.y, pa.z, pb.x, pb.y, pb.z]);
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      const mat = new THREE.LineBasicMaterial({ color: new THREE.Color('#bcd3ff'), transparent: true, opacity: 0.2 });
+      const line = new THREE.Line(geom, mat);
+      this.group.add(line);
+      this._threads.push({ line, geom, mat, a, b });
     }
   }
 
@@ -292,7 +312,13 @@ export class SuperpositionField {
       this.group.remove(c.node);
       if (c.dispose) c.dispose();
     }
+    for (const th of this._threads) {
+      this.group.remove(th.line);
+      th.geom.dispose();
+      th.mat.dispose();
+    }
     this.clouds = [];
+    this._threads = [];
     if (this.group) this.group.rotation.set(0, 0, 0);
   }
 
@@ -317,6 +343,11 @@ export class SuperpositionField {
         c.material.uniforms.uProgress.value = c.progress;
         c.node.rotation.y = t * 0.25; // each orbital slowly spins about its own axis
       }
+    }
+    // Entanglement threads brighten + pulse as both paired files co-collapse.
+    for (const th of this._threads) {
+      const co = Math.min(th.a.progress, th.b.progress);
+      th.mat.opacity = 0.12 + 0.55 * co * (0.8 + 0.2 * Math.sin(t * 3));
     }
     this.group.rotation.y = t * 0.1;
     this.group.rotation.x = Math.sin(t * 0.06) * 0.12;
