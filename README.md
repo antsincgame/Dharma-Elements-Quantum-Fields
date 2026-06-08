@@ -173,6 +173,10 @@ src/generator/        Framework-free ES-module core (runs in the browser and Nod
   engines.js                 QuantumSimulatorEngine (default) + LLMEngine (optional)
   scorers.js                 HeuristicScorer + LLMScorer + CompositeScorer (hybrid)
   orbitals.js                |ψ|² orbital sampling for the superposition cloud
+  qsim.js                    state-vector quantum simulator + OpenQASM-3 export
+  backends.js                QuantumBackend: local / ANU QRNG / IBM (+ Braket/Azure stubs)
+  quantum-engine.js          QuantumMeasurementEngine — Born-rule candidate selection
+  negative-time.js           weak value / group delay (Steinberg/Angulo, arXiv:2409.03680)
   vocabulary.js / prng.js / events.js / index.js
 src/generator.html    Interactive demo (orbital cloud, size meters, gauge, preview)
 src/generator-ui.js   DOM glue (imports the core; reuses the existing theme)
@@ -180,6 +184,7 @@ src/superposition-cloud.js  Three.js layer — the orbital "superposition cloud"
 bin/generate.js       Node CLI — writes a real static site to disk
 test/selfcheck.js          Zero-dependency smoke test (core + orbital math)
 test/cloud-integration.js  Cloud integration test (mock-THREE contract)
+test/quantum.test.js       Quantum layer (simulator, backends, Born selection, neg-time)
 ```
 
 - **Engine** is pluggable: the offline **Quantum Simulator** synthesizes theme-coherent content from the
@@ -197,6 +202,41 @@ test/cloud-integration.js  Cloud integration test (mock-THREE contract)
   Rendering uses additive-blended `THREE.Points` with `depthWrite:false` and a procedural glow shader; if
   Three.js can't load, the cloud disables itself and the generator keeps working fully offline.
 
+### Real quantum measurement + "negative time"
+
+A second, optional **quantum-measurement engine** turns candidate selection into a *genuine Born-rule
+measurement* and is ready to run on real hardware:
+
+- **State-vector simulator** (`qsim.js`): `2ⁿ` complex amplitudes, the standard gate set
+  (`H/X/Y/Z/S/T/RX/RY/RZ/P + CX/CZ/SWAP/CCX`) applied with the bit-mask pairing trick, Born-rule
+  measurement with collapse, and **OpenQASM 3** export. Deterministic via the project's seeded PRNG.
+- **Backends** (`backends.js`) behind one interface `run(circuit, shots) → {counts}`: a local simulator,
+  the **ANU QRNG** (real vacuum-fluctuation entropy), **IBM Quantum** (Qiskit Runtime REST), and
+  proxy-only stubs for **Amazon Braket / Azure Quantum** (they need SigV4 / OAuth + storage). Every real
+  backend **degrades to the local simulator** on failure. *An API key must never live in the browser —
+  browser callers pass a same-origin proxy endpoint.*
+- **Born-rule selection** (`quantum-engine.js`): the candidate weights `wᵢ = |amplitudeᵢ|²` are sampled by
+  descending a balanced binary tree of real single-qubit `RY` measurements, so `P(i) = wᵢ/Σw` exactly —
+  not argmax. The collapses can be seeded by real quantum entropy (QRNG).
+- **Negative time** (`negative-time.js`): grounded in the 2024 result that *a photon can spend a negative
+  amount of time as an atomic excitation* (Angulo, …, Steinberg — **arXiv:2409.03680**, PRL 136, 153601).
+  The measured excitation time is a **weak value** `A_w = ⟨φ|A|ψ⟩/⟨φ|ψ⟩` (which can fall outside an
+  observable's spectrum) and equals the optical **group delay** `τ_g = dφ/dω`, negative in the
+  anomalous-dispersion region. The UI surfaces the weak value, group delay and `τ_T/τ₀` per file. This is
+  **not** time travel, FTL signaling, or a causality violation — and it is a structural *cousin*
+  (analogy, **not** identity) of this project's negative-size “entropy debt” `S(A|B) < 0`.
+
+```bash
+# Quantum-measurement engine (deterministic local Born collapse)
+node bin/generate.js --engine quantum --seed 108
+
+# Real quantum entropy for the collapses (ANU QRNG via proxy/Node key)
+ANU_QRNG_KEY=… node bin/generate.js --engine quantum --backend qrng
+
+# Verify connectivity to a real QPU / QRNG with a Bell circuit
+node bin/generate.js --verify-quantum --backend ibm --ibm-key … --ibm-crn …
+```
+
 ### Try it
 
 ```bash
@@ -207,9 +247,8 @@ python3 -m http.server 8000
 # Node CLI — guess a real site to disk, deterministically
 node bin/generate.js --preset dharma-landing --out ./generated --threshold 85 --seed 108
 
-# Self-check (core + orbital math, then the cloud integration contract)
-node test/selfcheck.js
-node test/cloud-integration.js
+# Self-check (core, orbital math, cloud contract, and the quantum layer)
+npm test   # = selfcheck + cloud-integration + quantum.test
 ```
 
 With a real model: `ANTHROPIC_API_KEY=... node bin/generate.js --engine llm` (falls back to the simulator

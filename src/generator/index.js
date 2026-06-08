@@ -8,3 +8,7 @@ export * from './quantum-site-generator.js';
 export * from './engines.js';
 export * from './scorers.js';
 export * from './orbitals.js';
+export * from './qsim.js';
+export * from './backends.js';
+export * from './negative-time.js';
+export * from './quantum-engine.js';

@@ -11,6 +11,11 @@ import {
   QuantumSimulatorEngine,
   LLMEngine,
   HeuristicScorer,
+  QuantumMeasurementEngine,
+  QuantumEntropy,
+  makeBackend,
+  bellCircuit,
+  createRng,
   SITE_SPECS,
   ELEMENT_COLORS,
   byteLength,
@@ -45,11 +50,49 @@ function threshold() {
 
 function makeEngine() {
   const simulator = new QuantumSimulatorEngine();
-  if ($('qg-engine').value === 'llm') {
+  const mode = $('qg-engine').value;
+  if (mode === 'llm') {
     const endpoint = $('qg-endpoint').value.trim() || null;
     return new LLMEngine({ endpoint, fallback: simulator }); // no API key in the browser
   }
+  if (mode === 'quantum') {
+    // Candidate selection becomes a real Born-rule measurement. With a QRNG proxy
+    // the collapses are seeded by real quantum entropy; otherwise deterministic.
+    const proxy = $('qg-qproxy').value.trim() || null;
+    let entropy = null;
+    if ($('qg-backend').value === 'qrng' && proxy) {
+      entropy = new QuantumEntropy({ endpoint: proxy, fallbackRng: createRng($('qg-seed').value || 'OM') });
+    }
+    return new QuantumMeasurementEngine({ base: simulator, entropy });
+  }
   return simulator;
+}
+
+async function verifyQuantum() {
+  const out = $('qg-verify-out');
+  out.textContent = '⏳ running…';
+  const proxy = $('qg-qproxy').value.trim() || null;
+  const backend = makeBackend($('qg-backend').value, { endpoint: proxy, seed: $('qg-seed').value || 'OM' });
+  try {
+    const { counts, backend: name } = await backend.run(bellCircuit(), 1024);
+    out.textContent = `${name} → ${JSON.stringify(counts)}`;
+  } catch (err) {
+    out.textContent = '✗ ' + err.message;
+  }
+}
+
+function updateNegTime(file) {
+  if (!file || !file.quantum || !file.quantum.negativeTime) return;
+  const nt = file.quantum.negativeTime;
+  $('qg-negtime').style.display = 'block';
+  $('qg-negtime-body').innerHTML = `
+    <div class="qg-nt-grid">
+      <span>file</span><strong>${file.path}</strong>
+      <span>weak value A<sub>w</sub></span><strong class="${nt.anomalous ? 'qg-nt-anom' : ''}">${nt.weakValue.toFixed(3)}${nt.anomalous ? ' · anomalous' : ''}</strong>
+      <span>group delay τ<sub>g</sub></span><strong>${nt.groupDelay.toFixed(3)}</strong>
+      <span>excitation τ<sub>T</sub>/τ₀</span><strong class="${nt.negative ? 'qg-nt-neg' : ''}">${nt.excitationRatio.toFixed(3)}${nt.negative ? ' ⏪ negative' : ''}</strong>
+      <span>qubits measured</span><strong>${file.quantum.qubits}</strong>
+    </div>`;
 }
 
 function buildGenerator() {
@@ -63,7 +106,10 @@ function buildGenerator() {
     seed: $('qg-seed').value || 'OM',
     stepDelay: 220,
   });
-  generator.on('step', ({ file }) => updateCard(file));
+  generator.on('step', ({ file }) => {
+    updateCard(file);
+    updateNegTime(file);
+  });
   generator.on('collapse', ({ file }) => {
     updateCard(file);
     renderPreview();
@@ -85,6 +131,7 @@ function buildGenerator() {
   // (Re)seed the superposition cloud; clouds then follow each file's live
   // determinacy every frame and collapse as the run progresses.
   if (field) field.setFiles(generator.files, generator.seed);
+  if ($('qg-engine').value !== 'quantum') $('qg-negtime').style.display = 'none';
   $('qg-threshold-show').textContent = String(threshold());
 }
 
@@ -264,7 +311,9 @@ function init() {
   });
   $('qg-engine').addEventListener('change', (e) => {
     $('qg-endpoint-wrap').style.display = e.target.value === 'llm' ? 'flex' : 'none';
+    $('qg-quantum-wrap').style.display = e.target.value === 'quantum' ? 'flex' : 'none';
   });
+  $('qg-verify').addEventListener('click', verifyQuantum);
   $('qg-preset').addEventListener('change', () => reset());
   $('qg-seed').addEventListener('change', () => reset());
   $('qg-run').addEventListener('click', run);

@@ -20,6 +20,11 @@ import {
   HeuristicScorer,
   LLMScorer,
   CompositeScorer,
+  QuantumMeasurementEngine,
+  QuantumEntropy,
+  makeBackend,
+  bellCircuit,
+  createRng,
   SITE_SPECS,
   byteLength,
 } from '../src/generator/index.js';
@@ -58,10 +63,16 @@ Options:
   --threshold <n>      Target quality score 0-100 (default: 80)
   --budget <n>         Max measurement steps (default: 200)
   --seed <s>           PRNG seed for reproducibility (default: OM)
-  --engine sim|llm     Generation engine (default: sim)
+  --engine sim|llm|quantum   Generation engine (default: sim)
   --endpoint <url>     LLM proxy endpoint (browser-style); Node can also use ANTHROPIC_API_KEY
   --model <id>         LLM model id (default: claude-opus-4-8)
   --blend-scorer       Blend an LLM judge into the heuristic score (needs endpoint/key)
+  --backend <id>       Quantum backend: local|qrng|ibm|braket|azure (default: local)
+  --qrng-key <key>     ANU QRNG api key (or env ANU_QRNG_KEY) → real quantum entropy for --engine quantum
+  --ibm-key <key>      IBM Cloud IAM key (or env IBM_QUANTUM_TOKEN) for --backend ibm
+  --ibm-crn <crn>      IBM Qiskit Runtime instance Service-CRN
+  --ibm-backend <id>   IBM device name (default: ibm_brisbane)
+  --verify-quantum     Run a Bell circuit on --backend and print the counts (connectivity check)
   --quiet              Suppress per-step logging
   --help               Show this help
 `);
@@ -96,6 +107,27 @@ async function main() {
   const endpoint = args.endpoint ? String(args.endpoint) : null;
   const model = args.model ? String(args.model) : 'claude-opus-4-8';
 
+  // Quantum backend credentials (for --verify-quantum and the quantum engine).
+  const backendId = args.backend ? String(args.backend) : 'local';
+  const qrngKey = process.env.ANU_QRNG_KEY || (args['qrng-key'] ? String(args['qrng-key']) : null);
+  const ibmKey = process.env.IBM_QUANTUM_TOKEN || (args['ibm-key'] ? String(args['ibm-key']) : null);
+  const backendOpts = {
+    seed,
+    apiKey: backendId === 'qrng' ? qrngKey : ibmKey,
+    crn: args['ibm-crn'] ? String(args['ibm-crn']) : null,
+    backendName: args['ibm-backend'] ? String(args['ibm-backend']) : 'ibm_brisbane',
+    endpoint,
+  };
+
+  // Connectivity check: run a Bell circuit on the chosen backend and print counts.
+  if (args['verify-quantum']) {
+    const backend = makeBackend(backendId, backendOpts);
+    console.log(`🔌 Verifying quantum connectivity on backend=${backend.name} …`);
+    const { counts } = await backend.run(bellCircuit(), 1024);
+    console.log(`  Bell counts: ${JSON.stringify(counts)} (ideal ≈ 50% 00, 50% 11)`);
+    console.log(`  OpenQASM 3:\n${bellCircuit().toOpenQASM().split('\n').map((l) => '    ' + l).join('\n')}`);
+  }
+
   const simulator = new QuantumSimulatorEngine();
   let engine = simulator;
   if (args.engine === 'llm') {
@@ -104,6 +136,16 @@ async function main() {
       console.warn('[qiwg] LLM engine requested but no endpoint/ANTHROPIC_API_KEY found — using simulator.');
       engine = simulator;
     }
+  } else if (args.engine === 'quantum') {
+    // Candidate selection becomes a genuine Born-rule measurement. With a QRNG key
+    // the collapses are seeded by real quantum entropy; otherwise deterministic.
+    let entropy = null;
+    if (qrngKey || backendId === 'qrng') {
+      entropy = new QuantumEntropy({ apiKey: qrngKey, endpoint, fallbackRng: createRng(seed) });
+      const real = await entropy.available();
+      console.log(`⚛️  Quantum measurement engine · entropy=${real ? 'ANU QRNG (real)' : 'seeded (no QRNG key)'} `);
+    }
+    engine = new QuantumMeasurementEngine({ base: simulator, entropy });
   }
 
   let scorer = new HeuristicScorer();
@@ -121,7 +163,13 @@ async function main() {
     console.log(`🕉  ${spec.title} — ${spec.files.length} null files · engine=${engine.name} · threshold=${threshold} · seed=${seed}`);
     generator.on('step', ({ file, score, steps }) => {
       const sign = file.size < 0 ? '' : '+';
-      console.log(`  step ${String(steps).padStart(3)} · ${file.path.padEnd(14)} size=${sign}${file.size} · state=${file.state} · score=${score}`);
+      let tail = '';
+      if (file.quantum) {
+        const q = file.quantum;
+        tail = ` · ⚛️${q.qubits}q p=${(q.bornProb || 0).toFixed(2)}`;
+        if (q.negativeTime) tail += ` · τ/τ₀=${q.negativeTime.excitationRatio.toFixed(2)}${q.negativeTime.negative ? ' ⏪' : ''}`;
+      }
+      console.log(`  step ${String(steps).padStart(3)} · ${file.path.padEnd(14)} size=${sign}${file.size} · state=${file.state} · score=${score}${tail}`);
     });
   }
 

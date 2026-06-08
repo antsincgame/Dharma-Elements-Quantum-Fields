@@ -196,7 +196,12 @@ export class SuperpositionField {
       // Target collapse = the file's live determinacy (1 when collapsed).
       const f = c.file;
       const det = f.state === 'collapsed' ? 1 : determinacy(f);
-      const tgt = Math.max(0, Math.min(1, det));
+      let tgt = Math.max(0, Math.min(1, det));
+      // Negative-time "advance": when the quantum engine reports a negative dwell
+      // time (à la Steinberg), the cloud collapses slightly ahead of its determinacy
+      // — a bounded peak-advance, never unbounded (causal floor preserved).
+      const nt = f.quantum && f.quantum.negativeTime;
+      if (nt && nt.negative) tgt = Math.min(1, tgt + 0.08 * Math.abs(nt.excitationRatio));
       c.progress += (tgt - c.progress) * 0.06; // smooth ease toward target
       c.material.uniforms.uProgress.value = c.progress;
       c.material.uniforms.uTime.value = t;
