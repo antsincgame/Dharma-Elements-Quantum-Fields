@@ -235,6 +235,39 @@ export class AzureBackend extends ProxyOnlyBackend {
   get name() { return 'azure-quantum'; }
 }
 
+// --- Generic proxy backend (browser → your server → real provider) ----------
+// The browser must never hold provider API keys. This backend POSTs the circuit
+// (as OpenQASM 3) to a same-origin proxy endpoint (see server/quantum-proxy.js),
+// which runs the real provider server-side with keys from the environment and
+// returns { counts }. Degrades to the local simulator if the proxy is unreachable.
+export class ProxyBackend extends QuantumBackend {
+  constructor(opts = {}) {
+    super();
+    this.endpoint = opts.endpoint || '/api/quantum';
+    this.provider = opts.provider || opts.backendId || 'local';
+    this.fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
+    this.fallback = opts.fallback || new LocalSimulatorBackend(opts);
+  }
+  get name() { return `proxy:${this.provider}`; }
+  async available() { return Boolean(this.fetchImpl && this.endpoint); }
+  async run(circuit, shots = 1024) {
+    try {
+      if (!this.fetchImpl) throw new Error('no fetch available');
+      const res = await this.fetchImpl(this.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ openqasm: circuit.toOpenQASM(), shots, backend: this.provider }),
+      });
+      if (!res.ok) throw new Error(`proxy returned ${res.status}`);
+      const data = await res.json();
+      return { counts: data.counts || {}, shots, backend: data.backend || this.name };
+    } catch (err) {
+      if (typeof console !== 'undefined') console.warn('[qiwg] ProxyBackend fell back to local simulator:', err.message);
+      return this.fallback.run(circuit, shots);
+    }
+  }
+}
+
 // Factory: build a backend by id with sensible fallbacks.
 export function makeBackend(id, opts = {}) {
   switch ((id || 'local').toLowerCase()) {
@@ -242,6 +275,7 @@ export function makeBackend(id, opts = {}) {
     case 'ibm': return new IBMBackend(opts);
     case 'braket': return new BraketBackend(opts);
     case 'azure': return new AzureBackend(opts);
+    case 'proxy': return new ProxyBackend(opts);
     case 'local': default: return new LocalSimulatorBackend(opts);
   }
 }

@@ -258,6 +258,30 @@ export class QuantumCircuit {
   }
 }
 
+// Parse the subset of OpenQASM 3 this project emits back into a QuantumCircuit
+// (used by the proxy server to run a browser-submitted circuit on a real backend).
+export function parseOpenQASM(qasm) {
+  const lines = String(qasm).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  let n = 0;
+  for (const l of lines) {
+    const m = l.match(/^qubit\[(\d+)\]/);
+    if (m) { n = parseInt(m[1], 10); break; }
+  }
+  if (!n) throw new Error('OpenQASM has no qubit[n] register');
+  const circ = new QuantumCircuit(n);
+  for (const l of lines) {
+    if (/^(OPENQASM|include|qubit|bit)\b/.test(l)) continue;
+    if (/\bmeasure\b/.test(l)) { circ.measureAll(); continue; }
+    let m;
+    if ((m = l.match(/^(rx|ry|rz|p)\(\s*([-+0-9.eE]+)\s*\)\s+q\[(\d+)\]/))) { circ[m[1]](parseInt(m[3], 10), parseFloat(m[2])); continue; }
+    if ((m = l.match(/^ccx\s+q\[(\d+)\]\s*,\s*q\[(\d+)\]\s*,\s*q\[(\d+)\]/))) { circ.ccx(+m[1], +m[2], +m[3]); continue; }
+    if ((m = l.match(/^(cx|cz|swap)\s+q\[(\d+)\]\s*,\s*q\[(\d+)\]/))) { circ[m[1]](+m[2], +m[3]); continue; }
+    if ((m = l.match(/^(h|x|y|z|s|sdg|t|tdg)\s+q\[(\d+)\]/))) { circ[m[1]](parseInt(m[2], 10)); continue; }
+    // unrecognized lines are ignored (forward-compatible)
+  }
+  return circ;
+}
+
 // A canonical 2-qubit Bell circuit — used to verify connectivity to any backend
 // (ideal result ≈ 50% "00", 50% "11").
 export function bellCircuit() {

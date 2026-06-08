@@ -44,8 +44,15 @@ class MockShaderMaterial {
   dispose() { this.disposed = true; }
 }
 class MockPoints { constructor(geom, mat) { this.geometry = geom; this.material = mat; } }
+class MockLine { constructor(geom, mat) { this.geometry = geom; this.material = mat; } }
+class MockLineBasicMaterial { constructor(o) { Object.assign(this, o); this.disposed = false; } dispose() { this.disposed = true; } }
 class MockGroup {
-  constructor() { this.children = []; this.position = new MockVec3(); this.rotation = new MockVec3().set(0, 0, 0); }
+  constructor() {
+    this.children = [];
+    this.position = new MockVec3();
+    this.rotation = new MockVec3().set(0, 0, 0);
+    this.scale = new MockVec3().set(1, 1, 1);
+  }
   add(o) { this.children.push(o); }
   remove(o) { this.children = this.children.filter((c) => c !== o); }
 }
@@ -67,6 +74,8 @@ globalThis.THREE = {
   BufferGeometry: MockBufferGeometry,
   ShaderMaterial: MockShaderMaterial,
   Points: MockPoints,
+  Line: MockLine,
+  LineBasicMaterial: MockLineBasicMaterial,
   Group: MockGroup,
   Scene: MockScene,
   PerspectiveCamera: MockCamera,
@@ -171,6 +180,20 @@ check('rebuild on a new spec disposes old clouds and rebuilds', () => {
 
 check('renderer actually drew frames', () => {
   assert.ok(field.renderer.rendered > 0);
+});
+
+check('setMode("bloch") rebuilds as Bloch-sphere widgets and ticks', () => {
+  field.setMode('bloch');
+  assert.equal(field.mode, 'bloch');
+  assert.ok(field.clouds.length > 0);
+  for (const c of field.clouds) {
+    assert.equal(c.kind, 'bloch');
+    assert.ok(c.vectorGeom && c.tipNode && c.material, 'bloch widget has vector + tip + material');
+  }
+  for (let i = 0; i < 10; i++) field._tick(); // must not throw
+  field.setMode('orbital');
+  assert.equal(field.mode, 'orbital');
+  assert.ok(field.clouds.every((c) => c.kind === 'orbital'));
 });
 
 field.dispose();

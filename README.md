@@ -177,10 +177,13 @@ src/generator/        Framework-free ES-module core (runs in the browser and Nod
   backends.js                QuantumBackend: local / ANU QRNG / IBM (+ Braket/Azure stubs)
   quantum-engine.js          QuantumMeasurementEngine — Born-rule candidate selection
   negative-time.js           weak value / group delay (Steinberg/Angulo, arXiv:2409.03680)
+  bloch.js                   Bloch-sphere geometry for the qubit-state cloud view
+  zip.js                     zero-dependency ZIP writer (one-click site download)
   vocabulary.js / prng.js / events.js / index.js
-src/generator.html    Interactive demo (orbital cloud, size meters, gauge, preview)
+src/generator.html    Interactive demo (orbital/Bloch cloud, meters, gauge, preview, download)
 src/generator-ui.js   DOM glue (imports the core; reuses the existing theme)
-src/superposition-cloud.js  Three.js layer — the orbital "superposition cloud"
+src/superposition-cloud.js  Three.js layer — orbital cloud + Bloch-sphere mode
+server/quantum-proxy.js     Example server — keeps API keys off the client (QRNG/IBM/LLM)
 bin/generate.js       Node CLI — writes a real static site to disk
 test/selfcheck.js          Zero-dependency smoke test (core + orbital math)
 test/cloud-integration.js  Cloud integration test (mock-THREE contract)
@@ -236,6 +239,23 @@ ANU_QRNG_KEY=… node bin/generate.js --engine quantum --backend qrng
 # Verify connectivity to a real QPU / QRNG with a Bell circuit
 node bin/generate.js --verify-quantum --backend ibm --ibm-key … --ibm-crn …
 ```
+
+### Example proxy server, Bloch view & site download
+
+- **Proxy server** — `server/quantum-proxy.js` is a zero-dependency Node server that **keeps API keys
+  off the browser**. It serves the site *and* exposes `/api/qrng` (→ ANU QRNG), `/api/quantum`
+  (→ runs a browser-submitted OpenQASM 3 circuit on a real provider via the backends), and `/api/generate`
+  (→ Claude). Keys come from the environment (`ANU_QRNG_KEY`, `IBM_QUANTUM_TOKEN` + `IBM_CRN`,
+  `ANTHROPIC_API_KEY`). In the demo set the proxy origin, pick a backend, and the browser routes through it.
+  ```bash
+  ANU_QRNG_KEY=… IBM_QUANTUM_TOKEN=… IBM_CRN=… npm run serve:proxy
+  # → http://localhost:8787/src/generator.html
+  ```
+- **Bloch-sphere view** — toggle the cloud between the orbital `|ψ|²` view and a **Bloch-sphere** view,
+  where each file is a qubit state `|ψ⟩ = cos(θ/2)|0⟩ + e^{iφ}sin(θ/2)|1⟩`: its vector rises from the
+  equator (superposition) to a pole (collapsed) as it is measured, the uncertainty cloud shrinking with it.
+- **Download** — once a site is generated, **⬇ Download .zip** packages the assembled files into a ZIP
+  (a tiny in-repo, zero-dependency ZIP writer — no library) for a one-click save.
 
 ### Try it
 
