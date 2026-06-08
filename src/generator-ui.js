@@ -14,8 +14,10 @@ import {
   QuantumMeasurementEngine,
   QuantumEntropy,
   makeBackend,
+  ProxyBackend,
   bellCircuit,
   createRng,
+  makeZip,
   SITE_SPECS,
   ELEMENT_COLORS,
   byteLength,
@@ -56,28 +58,70 @@ function makeEngine() {
     return new LLMEngine({ endpoint, fallback: simulator }); // no API key in the browser
   }
   if (mode === 'quantum') {
-    // Candidate selection becomes a real Born-rule measurement. With a QRNG proxy
-    // the collapses are seeded by real quantum entropy; otherwise deterministic.
-    const proxy = $('qg-qproxy').value.trim() || null;
+    // Candidate selection becomes a real Born-rule measurement. With the QRNG
+    // backend + proxy the collapses are seeded by real quantum entropy.
     let entropy = null;
-    if ($('qg-backend').value === 'qrng' && proxy) {
-      entropy = new QuantumEntropy({ endpoint: proxy, fallbackRng: createRng($('qg-seed').value || 'OM') });
+    if ($('qg-backend').value === 'qrng') {
+      entropy = new QuantumEntropy({ endpoint: qrngEndpoint(), fallbackRng: createRng($('qg-seed').value || 'OM') });
     }
     return new QuantumMeasurementEngine({ base: simulator, entropy });
   }
   return simulator;
 }
 
+// Proxy origin (blank = same origin as the page; run server/quantum-proxy.js).
+function proxyOrigin() {
+  return $('qg-qproxy').value.trim().replace(/\/$/, '');
+}
+function qrngEndpoint() { return proxyOrigin() + '/api/qrng'; }
+
+// Build the selected backend, routing real providers through the example proxy
+// (keys live on the server, never in the browser).
+function buildBackend() {
+  const id = $('qg-backend').value;
+  const seed = $('qg-seed').value || 'OM';
+  if (id === 'local') return makeBackend('local', { seed });
+  if (id === 'qrng') return makeBackend('qrng', { endpoint: qrngEndpoint(), seed });
+  return new ProxyBackend({ endpoint: proxyOrigin() + '/api/quantum', provider: id });
+}
+
 async function verifyQuantum() {
   const out = $('qg-verify-out');
   out.textContent = '⏳ running…';
-  const proxy = $('qg-qproxy').value.trim() || null;
-  const backend = makeBackend($('qg-backend').value, { endpoint: proxy, seed: $('qg-seed').value || 'OM' });
   try {
-    const { counts, backend: name } = await backend.run(bellCircuit(), 1024);
-    out.textContent = `${name} → ${JSON.stringify(counts)}`;
+    const { counts, backend } = await buildBackend().run(bellCircuit(), 1024);
+    out.textContent = `${backend} → ${JSON.stringify(counts)}`;
   } catch (err) {
     out.textContent = '✗ ' + err.message;
+  }
+}
+
+// Package the assembled site into a .zip and trigger a browser download.
+function downloadSite() {
+  if (!generator) return;
+  const site = assembleSite(generator.files);
+  const entries = Object.keys(site).map((name) => ({ name, content: site[name] || '' }));
+  const blob = new Blob([makeZip(entries)], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${presetId()}-site.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function toggleCloudMode() {
+  if (!field) return;
+  const next = field.mode === 'bloch' ? 'orbital' : 'bloch';
+  field.setMode(next);
+  $('qg-cloud-mode').textContent = next === 'bloch' ? '🌀 Orbital view' : '🌐 Bloch view';
+  const cap = document.querySelector('.qg-cloud-caption');
+  if (cap) {
+    cap.textContent = next === 'bloch'
+      ? '🌐 Bloch sphere — each file as a qubit state |ψ⟩ = cos(θ/2)|0⟩ + e^{iφ}sin(θ/2)|1⟩, rising to a pole as it collapses'
+      : '🌀 Superposition cloud — each null file as an orbital |ψ|², collapsing on measurement';
   }
 }
 
@@ -314,6 +358,8 @@ function init() {
     $('qg-quantum-wrap').style.display = e.target.value === 'quantum' ? 'flex' : 'none';
   });
   $('qg-verify').addEventListener('click', verifyQuantum);
+  $('qg-download').addEventListener('click', downloadSite);
+  $('qg-cloud-mode').addEventListener('click', toggleCloudMode);
   $('qg-preset').addEventListener('change', () => reset());
   $('qg-seed').addEventListener('change', () => reset());
   $('qg-run').addEventListener('click', run);

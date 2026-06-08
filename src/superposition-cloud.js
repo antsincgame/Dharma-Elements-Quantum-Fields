@@ -12,7 +12,7 @@
 // inside methods, so importing it in Node (if ever) wouldn't throw at load time.
 // The pure sampling math lives in the framework-free core and is unit-tested there.
 
-import { sampleOrbital, ELEMENT_ORBITAL, ELEMENTS, ELEMENT_COLORS, PHI, createRng, determinacy } from './generator/index.js';
+import { sampleOrbital, ELEMENT_ORBITAL, ELEMENTS, ELEMENT_COLORS, PHI, createRng, determinacy, fileBlochState } from './generator/index.js';
 
 const VERTEX_SHADER = `
   uniform float uTime;
@@ -61,7 +61,10 @@ export class SuperpositionField {
     this.container = container;
     this.available = typeof THREE !== 'undefined' && !!container;
     this.pointsPerCloud = opts.pointsPerCloud || 6000;
+    this.mode = opts.mode || 'orbital'; // 'orbital' | 'bloch'
     this.clouds = [];
+    this._lastFiles = null;
+    this._lastSeed = null;
     this._raf = 0;
     if (!this.available) {
       if (container) container.classList.add('qg-cloud-off');
@@ -95,6 +98,8 @@ export class SuperpositionField {
   // frame, so no per-event wiring is needed beyond this call.
   setFiles(files, seed) {
     if (!this.available) return;
+    this._lastFiles = files;
+    this._lastSeed = seed;
     this._clearClouds();
     const list = files || [];
     const n = Math.max(1, list.length);
@@ -109,12 +114,22 @@ export class SuperpositionField {
       const file = list[i];
       const el = ELEMENTS[i % ELEMENTS.length];
       const orbitalKey = ELEMENT_ORBITAL[el.key] || '1s';
-      const cloud = this._buildCloud(file, el, orbitalKey, cloudR, rng.fork(file.path + '#' + i));
+      const fork = rng.fork(file.path + '#' + i);
+      const cloud = this.mode === 'bloch'
+        ? this._buildBloch(file, el, cloudR, fork)
+        : this._buildCloud(file, el, orbitalKey, cloudR, fork);
       const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
       cloud.node.position.set(Math.cos(angle) * ring, Math.sin(angle) * ring * 0.6, 0);
       this.group.add(cloud.node);
       this.clouds.push(cloud);
     }
+  }
+
+  // Switch visualization geometry ('orbital' ⇄ 'bloch') and rebuild in place.
+  setMode(mode) {
+    if (mode === this.mode) return;
+    this.mode = mode === 'bloch' ? 'bloch' : 'orbital';
+    if (this._lastFiles) this.setFiles(this._lastFiles, this._lastSeed);
   }
 
   _buildCloud(file, element, orbitalKey, cloudR, rng) {
@@ -175,14 +190,107 @@ export class SuperpositionField {
 
     const node = new THREE.Group();
     node.add(new THREE.Points(geom, material));
-    return { file, element, orbitalKey, geom, material, node, progress: 0 };
+    return {
+      kind: 'orbital', file, element, orbitalKey, geom, material, node, progress: 0,
+      dispose() { geom.dispose(); material.dispose(); },
+    };
+  }
+
+  // Bloch-sphere widget: three great-circle rings, the |0⟩–|1⟩ axis, a state vector
+  // from the centre to the Bloch tip, and a glowing uncertainty cloud at the tip
+  // that shrinks as the file collapses (determinacy → 1).
+  _buildBloch(file, element, R, rng) {
+    const node = new THREE.Group();
+    const disposables = [];
+    const color = hexToColor(ELEMENT_COLORS[element.key] || '#88aaff');
+
+    const ringMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.35 });
+    disposables.push(ringMat);
+    const ringPlanes = [
+      (a) => [Math.cos(a) * R, Math.sin(a) * R, 0],
+      (a) => [Math.cos(a) * R, 0, Math.sin(a) * R],
+      (a) => [0, Math.cos(a) * R, Math.sin(a) * R],
+    ];
+    for (const plane of ringPlanes) {
+      const seg = 64;
+      const arr = new Float32Array((seg + 1) * 3);
+      for (let k = 0; k <= seg; k++) {
+        const [x, y, z] = plane((k / seg) * Math.PI * 2);
+        arr[k * 3] = x; arr[k * 3 + 1] = y; arr[k * 3 + 2] = z;
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      disposables.push(g);
+      node.add(new THREE.Line(g, ringMat));
+    }
+
+    // |0⟩–|1⟩ axis (z).
+    const axisArr = new Float32Array([0, 0, -R, 0, 0, R]);
+    const axisGeom = new THREE.BufferGeometry();
+    axisGeom.setAttribute('position', new THREE.BufferAttribute(axisArr, 3));
+    disposables.push(axisGeom);
+    node.add(new THREE.Line(axisGeom, ringMat));
+
+    // State vector (centre → tip), updated every frame.
+    const vecArr = new Float32Array([0, 0, 0, 0, 0, R]);
+    const vectorGeom = new THREE.BufferGeometry();
+    vectorGeom.setAttribute('position', new THREE.BufferAttribute(vecArr, 3));
+    disposables.push(vectorGeom);
+    const vectorMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 });
+    disposables.push(vectorMat);
+    node.add(new THREE.Line(vectorGeom, vectorMat));
+
+    // Tip + uncertainty cloud (glowing points), carried in a sub-node we move/scale.
+    const M = 240;
+    const pos = new Float32Array(M * 3);
+    const target = new Float32Array(M * 3);
+    const colors = new Float32Array(M * 3);
+    const sizes = new Float32Array(M);
+    const phases = new Float32Array(M);
+    const bright = color.clone().lerp(new THREE.Color('#ffffff'), 0.4);
+    for (let i = 0; i < M; i++) {
+      if (i === 0) { pos[0] = pos[1] = pos[2] = 0; } // the tip itself
+      else {
+        // uncertainty offsets in a small ball (radius ~0.3R), scaled per-frame
+        const u = rng(), v = rng(), w = Math.cbrt(rng()) * 0.3 * R;
+        const th = Math.acos(1 - 2 * u), ph = 2 * Math.PI * v;
+        pos[i * 3] = w * Math.sin(th) * Math.cos(ph);
+        pos[i * 3 + 1] = w * Math.sin(th) * Math.sin(ph);
+        pos[i * 3 + 2] = w * Math.cos(th);
+      }
+      target[i * 3] = pos[i * 3]; target[i * 3 + 1] = pos[i * 3 + 1]; target[i * 3 + 2] = pos[i * 3 + 2];
+      const c = i === 0 ? bright : color;
+      colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
+      sizes[i] = (i === 0 ? 5 : 1.6 + rng() * 1.4) * this.pixelRatio;
+      phases[i] = rng() * Math.PI * 2;
+    }
+    const tipGeom = new THREE.BufferGeometry();
+    tipGeom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    tipGeom.setAttribute('targetPosition', new THREE.BufferAttribute(target, 3)); // = position → progress is inert
+    tipGeom.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
+    tipGeom.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+    tipGeom.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+    disposables.push(tipGeom);
+    const tipMat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uScale: { value: 320 }, uProgress: { value: 0 } },
+      vertexShader: VERTEX_SHADER, fragmentShader: FRAGMENT_SHADER,
+      blending: THREE.AdditiveBlending, depthTest: true, depthWrite: false, transparent: true,
+    });
+    disposables.push(tipMat);
+    const tipNode = new THREE.Group();
+    tipNode.add(new THREE.Points(tipGeom, tipMat));
+    node.add(tipNode);
+
+    return {
+      kind: 'bloch', file, element, node, tipNode, vectorGeom, material: tipMat, R, progress: 0,
+      dispose() { for (const d of disposables) d.dispose(); },
+    };
   }
 
   _clearClouds() {
     for (const c of this.clouds) {
       this.group.remove(c.node);
-      c.geom.dispose();
-      c.material.dispose();
+      if (c.dispose) c.dispose();
     }
     this.clouds = [];
     if (this.group) this.group.rotation.set(0, 0, 0);
@@ -193,23 +301,37 @@ export class SuperpositionField {
     if (!this.renderer) return;
     const t = this.clock.getElapsedTime();
     for (const c of this.clouds) {
-      // Target collapse = the file's live determinacy (1 when collapsed).
       const f = c.file;
       const det = f.state === 'collapsed' ? 1 : determinacy(f);
       let tgt = Math.max(0, Math.min(1, det));
       // Negative-time "advance": when the quantum engine reports a negative dwell
-      // time (à la Steinberg), the cloud collapses slightly ahead of its determinacy
-      // — a bounded peak-advance, never unbounded (causal floor preserved).
+      // time (à la Steinberg), collapse runs slightly ahead of determinacy — a
+      // bounded peak-advance, never unbounded (causal floor preserved).
       const nt = f.quantum && f.quantum.negativeTime;
       if (nt && nt.negative) tgt = Math.min(1, tgt + 0.08 * Math.abs(nt.excitationRatio));
       c.progress += (tgt - c.progress) * 0.06; // smooth ease toward target
-      c.material.uniforms.uProgress.value = c.progress;
       c.material.uniforms.uTime.value = t;
-      c.node.rotation.y = t * 0.25; // each orbital slowly spins about its own axis
+      if (c.kind === 'bloch') {
+        this._tickBloch(c);
+      } else {
+        c.material.uniforms.uProgress.value = c.progress;
+        c.node.rotation.y = t * 0.25; // each orbital slowly spins about its own axis
+      }
     }
     this.group.rotation.y = t * 0.1;
     this.group.rotation.x = Math.sin(t * 0.06) * 0.12;
     this.renderer.render(this.scene, this.camera);
+  }
+
+  _tickBloch(c) {
+    const bs = fileBlochState(c.file);
+    const tx = bs.vector[0] * c.R, ty = bs.vector[1] * c.R, tz = bs.vector[2] * c.R;
+    const arr = c.vectorGeom.attributes.position.array;
+    arr[3] = tx; arr[4] = ty; arr[5] = tz; // move the state-vector tip
+    c.vectorGeom.attributes.position.needsUpdate = true;
+    c.tipNode.position.set(tx, ty, tz);
+    const s = 0.12 + 0.88 * bs.dispersion; // uncertainty cloud shrinks toward the tip
+    c.tipNode.scale.set(s, s, s);
   }
 
   _resize() {

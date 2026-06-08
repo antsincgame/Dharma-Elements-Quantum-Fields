@@ -5,11 +5,12 @@
 
 import assert from 'node:assert/strict';
 import {
-  Statevector, QuantumCircuit, bellCircuit, ryMat, GATES,
-  LocalSimulatorBackend, QRNGBackend, IBMBackend, BraketBackend, makeBackend,
+  Statevector, QuantumCircuit, bellCircuit, ryMat, GATES, parseOpenQASM,
+  LocalSimulatorBackend, QRNGBackend, IBMBackend, BraketBackend, ProxyBackend, makeBackend,
   bornSampleTree, SeededEntropy, QuantumMeasurementEngine,
   QuantumSimulatorEngine, HeuristicScorer, Generator, createRng, SITE_SPECS,
   weakValueExcitation, groupDelay, excitationTimeRatio, fileDwell, NEGATIVE_TIME_REFERENCE,
+  makeZip, crc32, blochVector, fileBlochState,
 } from '../src/generator/index.js';
 
 let passed = 0;
@@ -185,6 +186,70 @@ await check('excitation ratio spans the measured experimental range', () => {
 await check('fileDwell goes negative near the half-collapsed point', () => {
   const half = fileDwell({ debt: 500, missingInfo: 1000 }); // determinacy 0.5 → on resonance
   assert.ok(half.negative, `expected negative dwell at determinacy 0.5, got ratio ${half.ratio}`);
+});
+
+// ---- OpenQASM round-trip (used by the proxy server) ----
+await check('parseOpenQASM round-trips a Bell circuit', () => {
+  const circ = parseOpenQASM(bellCircuit().toOpenQASM());
+  const probs = circ.probabilities(); // [00,01,10,11]
+  assert.ok(Math.abs(probs[0] - 0.5) < 1e-9 && Math.abs(probs[3] - 0.5) < 1e-9, 'Bell |00>+|11>');
+  assert.ok(probs[1] < 1e-9 && probs[2] < 1e-9, 'no |01>/|10>');
+});
+
+await check('parseOpenQASM round-trips a parametric RY circuit', () => {
+  const qasm = new QuantumCircuit(1).ry(0, 1.0).measureAll().toOpenQASM();
+  const circ = parseOpenQASM(qasm);
+  assert.ok(Math.abs(circ.simulate().prob1(0) - Math.sin(0.5) ** 2) < 1e-6);
+});
+
+// ---- ProxyBackend ----
+await check('ProxyBackend forwards to the proxy and returns its counts', async () => {
+  const fakeFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    assert.ok(body.openqasm.includes('OPENQASM 3;') && body.backend === 'ibm');
+    return { ok: true, json: async () => ({ counts: { '00': 10, '11': 6 }, backend: 'ibm-qiskit-runtime' }) };
+  };
+  const out = await new ProxyBackend({ endpoint: '/api/quantum', provider: 'ibm', fetchImpl: fakeFetch }).run(bellCircuit(), 16);
+  assert.deepEqual(out.counts, { '00': 10, '11': 6 });
+});
+
+await check('ProxyBackend degrades to local simulator when the proxy fails', async () => {
+  const throwing = async () => { throw new Error('proxy down'); };
+  const out = await new ProxyBackend({ endpoint: '/api/quantum', provider: 'ibm', fetchImpl: throwing }).run(bellCircuit(), 100);
+  assert.equal((out.counts['00'] || 0) + (out.counts['11'] || 0), 100);
+});
+
+// ---- Bloch-sphere geometry ----
+await check('blochVector maps poles and equator correctly', () => {
+  const north = blochVector(0, 0);
+  assert.ok(Math.abs(north[2] - 1) < 1e-12, '|0⟩ at north pole');
+  const eq = blochVector(Math.PI / 2, 0);
+  assert.ok(Math.abs(eq[0] - 1) < 1e-12 && Math.abs(eq[2]) < 1e-12, 'equator');
+});
+
+await check('fileBlochState: collapsed → pole (no dispersion), superposition → equator', () => {
+  const collapsed = fileBlochState({ debt: 0, missingInfo: 1000, measurements: 3 });
+  assert.ok(Math.abs(collapsed.theta) < 1e-9 && collapsed.dispersion < 1e-9, 'collapsed at pole');
+  const superpos = fileBlochState({ debt: 1000, missingInfo: 1000, measurements: 0 });
+  assert.ok(Math.abs(superpos.theta - Math.PI / 2) < 1e-9 && Math.abs(superpos.dispersion - 1) < 1e-9, 'superposition at equator');
+});
+
+// ---- ZIP writer (site download) ----
+await check('crc32 matches the standard test vector', () => {
+  assert.equal(crc32(new TextEncoder().encode('123456789')), 0xcbf43926);
+});
+
+await check('makeZip produces a valid stored archive', () => {
+  const zip = makeZip([{ name: 'index.html', content: '<h1>ॐ</h1>' }, { name: 'style.css', content: 'body{}' }]);
+  assert.ok(zip instanceof Uint8Array && zip.length > 0);
+  // local file header signature PK\x03\x04
+  assert.deepEqual(Array.from(zip.slice(0, 4)), [0x50, 0x4b, 0x03, 0x04]);
+  // end-of-central-directory signature PK\x05\x06 appears near the end
+  let hasEOCD = false;
+  for (let i = zip.length - 22; i >= 0; i--) {
+    if (zip[i] === 0x50 && zip[i + 1] === 0x4b && zip[i + 2] === 0x05 && zip[i + 3] === 0x06) { hasEOCD = true; break; }
+  }
+  assert.ok(hasEOCD, 'has end-of-central-directory record');
 });
 
 console.log(`\nAll ${passed} quantum tests passed ✓`);
