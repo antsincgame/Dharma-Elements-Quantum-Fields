@@ -15,7 +15,7 @@
     "serve:proxy": "node server/quantum-proxy.js",
     "generate": "node bin/generate.js",
     "selfcheck": "node test/selfcheck.js",
-    "test": "node test/selfcheck.js && node test/cloud-integration.js && node test/quantum.test.js && node test/entanglement.test.js && node test/orbitals.test.js && node test/llm.test.js && node test/proxy.test.js"
+    "test": "node test/selfcheck.js && node test/cloud-integration.js && node test/quantum.test.js && node test/entanglement.test.js && node test/orbitals.test.js && node test/llm.test.js && node test/proxy.test.js && node test/web-field.test.js && node test/emergent.test.js"
   },
   "license": "MIT"
 }

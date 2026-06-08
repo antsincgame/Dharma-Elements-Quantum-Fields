@@ -181,6 +181,9 @@ src/generator/        Framework-free ES-module core (runs in the browser and Nod
   entanglement.js            Bell states, EntangledPair, and the CHSH Bell test
   bloch.js                   Bloch-sphere geometry for the qubit-state cloud view
   zip.js                     zero-dependency ZIP writer (one-click site download)
+  web-field.js               emergent web-field — quantum cellular automaton over web blocks
+  agent.js                   wu-wei agent — toolset + "do nothing" loop (LLM-ready)
+  web-materialize.js         collapse an evolved field into a real, unique HTML+CSS site
   vocabulary.js / prng.js / events.js / index.js
 src/generator.html    Interactive demo (orbital/Bloch cloud, meters, gauge, preview, download)
 src/generator-ui.js   DOM glue (imports the core; reuses the existing theme)
@@ -194,6 +197,8 @@ test/entanglement.test.js  Bell states, EntangledPair, and the CHSH Bell test
 test/orbitals.test.js      Orbital sampling — r² Jacobian, |Y_lm|² rejection, radial nodes
 test/llm.test.js           LLM providers (Anthropic + OpenAI/LM Studio), key-safety, fallback
 test/proxy.test.js         Proxy hardening — path-traversal guard, /api/llm validation
+test/web-field.test.js     Emergent CA — determinism, region emergence, 生/克 affinity
+test/emergent.test.js      Wu-wei agent (tools + "do nothing") + field→website materializer
 ```
 
 - **Engine** is pluggable: the offline **Quantum Simulator** synthesizes theme-coherent content from the
@@ -231,6 +236,30 @@ The contact sheet tours the orbital structure — note the **radial nodes**: the
 
 ![Orbital structure tour: 1s · 2s · 2p_z · 3s · 3p_z · 3d_z² (radial nodes visible)](docs/previews/cloud-contact.png)
 ![Golden-ratio mandala of the five element clouds](docs/previews/cloud-mandala.png)
+
+### 🌱 Emergent generator — a website that *grows* (not a template)
+
+Instead of slot-filling a fixed spec, the **emergent generator** lets a real site self-assemble from
+randomness and local interaction — two layers:
+
+- **Bottom (physics):** `web-field.js` is a **quantum cellular automaton** over web "building blocks"
+  (void · text · heading · media · accent · quote · rule · link). Each tick, a cell's next block is decided
+  by its neighbors **and a Born-rule draw**, so coherent regions (sections) crystallize out of a near-empty
+  field — `縁起` / dependent origination made literal. Elements influence neighbors by a **generative/
+  overcoming cycle** (生/克, Wu-Xing-style). VOID is favored (`śūnyatā` / `無爲`), so the page stays spacious.
+- **Top (agency):** `agent.js` is a **wu-wei agent** given a small **toolset** (`rest · contemplate · seed ·
+  perturb · infuse · accent · freeze`) and one koan — **"do nothing."** It mostly abides and only now and
+  then touches the field, expressing itself with no task. Offline its choices are a quantum-seeded draw
+  (rest-dominant); pass an async `decide` hook to let a real LLM choose tools (same interface, no fetch in
+  the core). Every action is logged as an "intention".
+- **Materialize:** `web-materialize.js` collapses the evolved field into a **real, unique HTML+CSS site** —
+  the section count, order, content and palette all emerge from the field, so a different seed (or agent run)
+  yields a genuinely different website, never a template.
+
+```bash
+node examples/emergent-web.js OM 30   # watch the field emerge (ASCII), the agent's journal,
+                                      # then a real site → generated/emergent/index.html
+```
 
 ### Real quantum measurement + "negative time"
 
