@@ -74,7 +74,27 @@ await check('materializeField produces a real, valid HTML+CSS site', async () =>
   assert.ok(html.includes('<main class="emergent">') && html.includes('</html>'));
   assert.ok(/<h1>/.test(html), 'always has a hero heading');
   assert.ok((html.match(/class="em /g) || []).length > 0, 'has emergent sections');
-  assert.ok(site['style.css'].includes('.em-orb'));
+  assert.ok(/class="em-topnav"/.test(html), 'synthesizes a nav from elements present');
+  // Every MEDIA section embeds exactly one inline-SVG orbital.
+  const media = (html.match(/class="em em-media"/g) || []).length;
+  const svgs = (html.match(/class="em-orbital"/g) || []).length;
+  assert.equal(media, svgs, 'each media block is a real orbital SVG');
+  assert.ok(site['style.css'].includes('.em-orbital'));
+});
+
+await check('media blocks become real |ψ|² orbital SVGs (sampled from orbitals.js)', async () => {
+  // Across several seeds at least one site grows a media/orbital block.
+  let withOrbital = 0, validSvg = true;
+  for (const seed of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
+    const f = (await runAgent({ field: mkField(seed), rng: createRng(seed + ':a'), ticks: 30 })).field;
+    const html = materializeField(f, { rng: createRng(seed + ':m'), title: 'S' })['index.html'];
+    if (/class="em-orbital"/.test(html)) {
+      withOrbital++;
+      if (!/<svg class="em-orbital"[^>]*viewBox="0 0 \d+ \d+"/.test(html) || !/<circle /.test(html)) validSvg = false;
+    }
+  }
+  assert.ok(withOrbital > 0, 'at least one emergent site embeds an orbital');
+  assert.ok(validSvg, 'embedded orbitals are well-formed SVG with sampled points');
 });
 
 await check('different fields materialize different sites (never templated)', async () => {

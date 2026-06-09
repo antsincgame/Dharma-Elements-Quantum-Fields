@@ -256,7 +256,9 @@ randomness and local interaction — two layers:
   the core). Every action is logged as an "intention".
 - **Materialize:** `web-materialize.js` collapses the evolved field into a **real, unique HTML+CSS site** —
   the section count, order, content and palette all emerge from the field, so a different seed (or agent run)
-  yields a genuinely different website, never a template.
+  yields a genuinely different website, never a template. **MEDIA blocks become inline-SVG quantum orbitals**
+  (sampled from the same `orbitals.js`, so the grown site literally shows the orbitals it is about), a nav is
+  synthesized from the elements present, and each section pulls **distinct per-element facts** (no repeats).
 
 - **Real model as the agent's will:** `llm-decider.js` lets the agent's tool choices come from a real LLM
   (LM Studio / Claude / any OpenAI-compatible server) under the "do nothing" koan — same provider presets as
